@@ -1490,6 +1490,10 @@ const PEXELS_QUERIES = {
   geral: ['professional+cleaning+team', 'cleaning+service+professional', 'janitorial+service+team', 'commercial+cleaning+company', 'cleaning+crew+professional']
 };
 
+// Preload logo once
+const _logoCache = new Image();
+_logoCache.src = LOGO_B64;
+
 async function aplicarLogoCanvas(fotoData, servico, legenda) {
   return new Promise((resolve) => {
     const W = 1024, H = 1024;
@@ -1525,7 +1529,10 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
       ctx.fillStyle = 'rgba(185,28,28,0.92)';
       ctx.fillRect(0, 0, W, 80);
 
-      // Company name first (no logo dependency)
+      // Draw logo from cache
+      try { ctx.drawImage(_logoCache, 8, 4, 78, 78); } catch(e) {}
+
+      // Company name
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 28px Arial';
       ctx.textAlign = 'left';
@@ -1535,17 +1542,6 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
       ctx.fillStyle = 'rgba(255,255,255,0.92)';
       ctx.fillText('Limpeza  •  Portaria  •  Facilities', 96, 64);
       ctx.shadowBlur = 0;
-
-      // Logo - draw synchronously if already loaded, else draw now
-      const logoEl = new Image();
-      logoEl.onload = () => {
-        ctx.drawImage(logoEl, 8, 4, 78, 78);
-        // Re-resolve with logo
-        resolve(cv.toDataURL('image/jpeg', 0.92));
-      };
-      logoEl.onerror = () => resolve(cv.toDataURL('image/jpeg', 0.92));
-      logoEl.src = LOGO_B64;
-      return; // wait for logo to load
 
       // BIG TEXT in the middle - style like the example
       ctx.textAlign = 'left';
@@ -1583,7 +1579,7 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       ctx.fillText('lcsterceirizacaors.com.br', W/2, H - 12);
 
-      // resolve is called after logo loads (see above)
+      resolve(cv.toDataURL('image/jpeg', 0.92));
     };
     img.onerror = () => resolve(fotoData);
     img.src = fotoData;
@@ -1924,27 +1920,29 @@ async function enviarBufferTodos() {
     console.log('Buffer raw response:', chRaw);
     let chData;
     try { chData = JSON.parse(chRaw); } catch(e) { console.log('Parse error:', e); }
-    const channels = chData?.data?.organizations?.[0]?.channels || [];
-    console.log('Buffer channels found:', channels.length, JSON.stringify(channels));
     
-    // Try to find Instagram channel by multiple methods
+    // Buffer API returns organizations with channels
+    const orgs = chData?.data?.organizations || [];
+    let channels = [];
+    orgs.forEach(org => { channels = channels.concat(org.channels || []); });
+    console.log('All channels:', JSON.stringify(channels));
+    
+    // Find Instagram - accept any channel type that includes instagram
     const igChannel = channels.find(c=>
-      c.serviceType === 'instagram' ||
-      c.serviceType === 'instagram_business' ||
-      c.name?.toLowerCase().includes('lcs') ||
-      c.name?.toLowerCase().includes('terceirizacao') ||
-      c.name?.toLowerCase().includes('instagram')
-    );
-    channelId = igChannel?.id || channels[0]?.id;
+      (c.serviceType||'').toLowerCase().includes('instagram') ||
+      (c.name||'').toLowerCase().includes('lcs') ||
+      (c.name||'').toLowerCase().includes('terceirizacao')
+    ) || channels[0]; // fallback to first channel
+    
+    channelId = igChannel?.id;
     
     if(!channelId) {
-      const channelNames = channels.map(c=>`${c.name} (${c.serviceType})`).join(', ');
-      showToast(`⚠️ Canais encontrados: ${channelNames || 'nenhum'}. Conecte o Instagram no Buffer.`);
+      showToast(`⚠️ Nenhum canal encontrado. Verifique o Buffer.`);
       btn.innerHTML = '📤 Enviar Todos para o Buffer';
       btn.disabled = false;
       return;
     }
-    console.log('Using channel:', channelId, igChannel?.name);
+    console.log('Using channel:', channelId, igChannel?.name, igChannel?.serviceType);
   } catch(e) {
     showToast('❌ Erro ao buscar canal do Buffer. Verifique a chave.');
     btn.innerHTML = '📤 Enviar Todos para o Buffer';
