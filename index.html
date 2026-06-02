@@ -786,7 +786,9 @@ Responda APENAS com a legenda estruturada.`;
       })
     });
     const data = await res.json();
+    console.log('API response:', JSON.stringify(data).substring(0, 300));
     const full = data.content?.[0]?.text || '';
+    console.log('Full text:', full.substring(0, 100));
 
     let legenda = full, tags = [], extra = '';
     // Extract hashtags
