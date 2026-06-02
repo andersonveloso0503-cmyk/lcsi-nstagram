@@ -1,16 +1,7 @@
 {
-  "functions": {
-    "api/*.js": { "maxDuration": 60 }
-  },
-  "rewrites": [
-    { "source": "/api/claude", "destination": "/claude.js" },
-    { "source": "/api/buffer", "destination": "/buffer.js" },
-    { "source": "/api/pexels", "destination": "/pexels.js" },
-    { "source": "/api/imagem", "destination": "/imagem.js" }
-  ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
