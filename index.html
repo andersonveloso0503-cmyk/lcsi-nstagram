@@ -1233,12 +1233,15 @@ async function enviarBufferUnico() {
     const bufferKey = document.getElementById('buffer-key').value.trim();
     if(!bufferKey) { showToast('⚠️ Cole a chave do Buffer na aba 30 Dias!'); btn.innerHTML = '📤 Enviar ao Buffer'; btn.disabled = false; return; }
 
+    console.log('Using Buffer key:', bufferKey.substring(0,10) + '...');
+
     // Get channel ID
     const chRes = await fetch('/api/buffer', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({query:`{ organizations { channels { id name serviceType } } }`, key: bufferKey})
     });
+    console.log('Buffer response status:', chRes.status);
     const chData = await chRes.json();
     const channels = chData?.data?.organizations?.[0]?.channels || [];
     const igChannel = channels.find(c=>
@@ -1918,6 +1921,7 @@ async function enviarBufferTodos() {
     });
     const chRaw = await chRes.text();
     console.log('Buffer raw response:', chRaw);
+    showToast('Buffer: ' + chRaw.substring(0, 80));
     let chData;
     try { chData = JSON.parse(chRaw); } catch(e) { console.log('Parse error:', e); }
     
