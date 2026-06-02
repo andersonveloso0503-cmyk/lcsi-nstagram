@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23dc2626' rx='15'/><text y='.9em' font-size='70' x='50%' text-anchor='middle'>🧹</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LCS Terceirização — Painel Instagram</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --surface2: #1a2236;
+    --border: #1f2d47;
+    --accent: #2563eb;
+    --accent2: #3b82f6;
+    --accent-glow: rgba(37,99,235,0.25);
+    --gold: #f59e0b;
+    --green: #10b981;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --white: #ffffff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* BG GRID */
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(37,99,235,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(37,99,235,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    position:fixed; left:0; top:0; bottom:0; width:220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display:flex; flex-direction:column; gap:4px;
+    padding:28px 14px;
+    z-index:10;
+  }
+  .logo {
+    font-family:'Syne',sans-serif;
+    font-size:15px; font-weight:800;
+    color:var(--white);
+    padding:0 8px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom:12px;
+    line-height:1.2;
+  }
+  .logo span { color:var(--accent2); }
+  .logo small { display:block; font-weight:400; font-size:10px; color:var(--muted); margin-top:2px; }
+  .nav-item {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-radius:8px;
+    cursor:pointer; transition:.2s;
+    font-size:13.5px; color:var(--muted);
+    font-weight:500;
+  }
+  .nav-item:hover { background:var(--surface2); color:var(--text); }
+  .nav-item.active { background:var(--accent-glow); color:var(--accent2); border:1px solid rgba(37,99,235,.3); }
+  .nav-icon { font-size:16px; width:20px; text-align:center; }
+
+  /* MAIN */
+  .main {
+    margin-left:220px;
+    padding:32px 36px;
+    position:relative; z-index:1;
+    min-height:100vh;
+  }
+
+  /* HEADER */
+  .header {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:32px;
+  }
+  .header h1 {
+    font-family:'Syne',sans-serif;
+    font-size:22px; font-weight:700; color:var(--white);
+  }
+  .header p { font-size:13px; color:var(--muted); margin-top:2px; }
+  .badge {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 14px; border-radius:20px;
+    background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3);
+    font-size:12px; color:var(--green); font-weight:500;
+  }
+  .badge::before { content:'●'; font-size:8px; }
+
+  /* TABS */
+  .tabs { display:flex; gap:6px; margin-bottom:28px; }
+  .tab {
+    padding:8px 18px; border-radius:8px; cursor:pointer;
+    font-size:13px; font-weight:500; transition:.2s;
+    border:1px solid transparent; color:var(--muted);
+    background:none;
+  }
+  .tab.active {
+    background:var(--accent); color:#fff;
+    border-color:var(--accent);
+  }
+  .tab:hover:not(.active) { background:var(--surface2); color:var(--text); }
+
+  /* SECTIONS */
+  .section { display:none; }
+  .section.active { display:block; }
+
+  /* STATS GRID */
+  .stats-grid {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px;
+  }
+  .stat-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:18px 20px;
+  }
+  .stat-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .stat-value { font-family:'Syne',sans-serif; font-size:26px; font-weight:700; color:var(--white); margin:4px 0; }
+  .stat-delta { font-size:12px; color:var(--green); }
+
+  /* GENERATE */
+  .gen-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:22px;
+  }
+  .card h3 {
+    font-family:'Syne',sans-serif; font-size:14px; font-weight:700;
+    color:var(--white); margin-bottom:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .card h3 span { font-size:18px; }
+
+  label { font-size:12px; color:var(--muted); display:block; margin-bottom:6px; font-weight:500; }
+  select, input, textarea {
+    width:100%; padding:10px 12px; border-radius:8px;
+    background:var(--bg); border:1px solid var(--border);
+    color:var(--text); font-family:'DM Sans',sans-serif;
+    font-size:13px; margin-bottom:14px; outline:none; resize:none;
+    transition:.2s;
+  }
+  select:focus, input:focus, textarea:focus { border-color:var(--accent2); }
+  textarea { height:90px; }
+
+  .btn {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:10px 20px; border-radius:8px; cursor:pointer;
+    font-size:13px; font-weight:600; transition:.2s; border:none;
+    font-family:'DM Sans',sans-serif;
+  }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:var(--accent2); transform:translateY(-1px); }
+  .btn-primary:active { transform:translateY(0); }
+  .btn-secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .btn-secondary:hover { border-color:var(--accent2); color:var(--accent2); }
+  .btn-sm { padding:7px 14px; font-size:12px; }
+  .btn-green { background:rgba(16,185,129,.15); color:var(--green); border:1px solid rgba(16,185,129,.3); }
+  .btn-green:hover { background:rgba(16,185,129,.25); }
+  .btn-full { width:100%; justify-content:center; }
+
+  .output-box {
+    background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    padding:14px; font-size:13px; line-height:1.7; color:var(--text);
+    min-height:120px; white-space:pre-wrap; position:relative;
+  }
+  .output-box.loading::after {
+    content:'Gerando com IA...';
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(10,15,30,.7); border-radius:8px;
+    color:var(--accent2); font-size:13px; font-weight:500;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+  .tags-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .tag {
+    padding:4px 10px; border-radius:20px; font-size:11px;
+    background:rgba(37,99,235,.15); color:var(--accent2);
+    border:1px solid rgba(37,99,235,.25);
+  }
+
+  /* CALENDAR */
+  .cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .cal-header h2 { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; color:var(--white); }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .cal-day-name {
+    text-align:center; font-size:11px; color:var(--muted);
+    padding:6px; text-transform:uppercase; letter-spacing:.5px;
+  }
+  .cal-cell {
+    background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    min-height:80px; padding:8px; cursor:pointer; transition:.2s; position:relative;
+  }
+  .cal-cell:hover { border-color:var(--accent2); }
+  .cal-cell.today { border-color:var(--accent); background:rgba(37,99,235,.08); }
+  .cal-cell.has-post { border-color:rgba(16,185,129,.4); }
+  .cal-num { font-size:12px; color:var(--muted); font-weight:600; }
+  .cal-post-pill {
+    margin-top:4px; padding:3px 6px; border-radius:4px;
+    font-size:10px; background:rgba(16,185,129,.15);
+    color:var(--green); overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+  }
+
+  /* POST LIST */
+  .post-list { display:flex; flex-direction:column; gap:12px; }
+  .post-item {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:16px 20px; display:flex; align-items:center; gap:16px;
+  }
+  .post-thumb {
+    width:48px; height:48px; border-radius:8px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:22px;
+  }
+  .post-info { flex:1; }
+  .post-title { font-size:13.5px; font-weight:500; color:var(--white); }
+  .post-meta { font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .post-status {
+    padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600;
+    white-space:nowrap;
+  }
+  .status-scheduled { background:rgba(37,99,235,.15); color:var(--accent2); }
+  .status-published { background:rgba(16,185,129,.15); color:var(--green); }
+  .status-draft { background:rgba(100,116,139,.15); color:var(--muted); }
+
+  /* MODAL */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.7);
+    display:none; align-items:center; justify-content:center;
+    z-index:100; backdrop-filter:blur(4px);
+  }
+  .modal-overlay.open { display:flex; }
+  .modal {
+    background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:28px; width:520px; max-height:80vh; overflow-y:auto;
+    box-shadow: 0 25px 60px rgba(0,0,0,.5);
+  }
+  .modal h3 {
+    font-family:'Syne',sans-serif; font-size:16px; font-weight:700;
+    color:var(--white); margin-bottom:18px;
+  }
+  .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+
+  /* COPY TOAST */
+  .toast {
+    position:fixed; bottom:24px; right:24px;
+    background:var(--green); color:#fff; padding:12px 20px; border-radius:10px;
+    font-size:13px; font-weight:600; transform:translateY(60px); opacity:0;
+    transition:.3s; z-index:999;
+  }
+  .toast.show { transform:translateY(0); opacity:1; }
+
+  /* THEMES */
+  .theme-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+  .theme-card {
+    padding:10px 12px; border-radius:8px; cursor:pointer;
+    background:var(--bg); border:2px solid var(--border);
+    transition:.2s; text-align:center; font-size:12px;
+  }
+  .theme-card:hover, .theme-card.selected { border-color:var(--accent2); background:var(--accent-glow); color:var(--accent2); }
+  .theme-card .t-icon { font-size:20px; display:block; margin-bottom:4px; }
+
+  .divider { border:none; border-top:1px solid var(--border); margin:18px 0; }
+
+  .copy-btn {
+    position:absolute; top:8px; right:8px;
+    padding:4px 10px; border-radius:6px; font-size:11px;
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--muted); cursor:pointer; transition:.2s;
+  }
+  .copy-btn:hover { color:var(--text); border-color:var(--accent2); }
+
+  .char-count { font-size:11px; color:var(--muted); text-align:right; margin-top:-10px; margin-bottom:10px; }
+
+  /* SPINNER */
+  .spinner {
+    display:inline-block; width:14px; height:14px;
+    border:2px solid rgba(255,255,255,.3); border-top-color:#fff;
+    border-radius:50%; animation:spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    LCS<br><span>Terceirização</span>
+    <small>📍 Porto Alegre, RS</small>
+  </div>
+  <div class="nav-item active" onclick="setNav(this,'gerador')">
+    <span class="nav-icon">✨</span> Gerar Post
+  </div>
+  <div class="nav-item" onclick="setNav(this,'calendario')">
+    <span class="nav-icon">📅</span> Calendário
+  </div>
+  <div class="nav-item" onclick="setNav(this,'posts')">
+    <span class="nav-icon">📋</span> Meus Posts
+  </div>
+  <div class="nav-item" onclick="setNav(this,'trinta')">
+    <span class="nav-icon">🗓️</span> 30 Dias
+  </div>
+  <div class="nav-item" onclick="setNav(this,'temas')">
+    <span class="nav-icon">🎯</span> Banco de Temas
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h1>Painel de Posts — Instagram</h1>
+      <p>@lcs_terceirizacao · Limpeza, Portaria & Facilities</p>
+    </div>
+    <div class="badge">IA Ativa</div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Posts Criados</div>
+      <div class="stat-value" id="st-total">0</div>
+      <div class="stat-delta">este mês</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Agendados</div>
+      <div class="stat-value" id="st-sched">0</div>
+      <div class="stat-delta">próximos dias</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Publicados</div>
+      <div class="stat-value" id="st-pub">0</div>
+      <div class="stat-delta">↑ consistência</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Rascunhos</div>
+      <div class="stat-value" id="st-draft">0</div>
+      <div class="stat-delta">para revisar</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('gerador',this)">✨ Gerar com IA</button>
+    <button class="tab" onclick="switchTab('trinta',this)">🗓️ 30 Dias</button>
+    <button class="tab" onclick="switchTab('calendario',this)">📅 Calendário</button>
+    <button class="tab" onclick="switchTab('posts',this)">📋 Meus Posts</button>
+    <button class="tab" onclick="switchTab('temas',this)">🎯 Banco de Temas</button>
+  </div>
+
+  <!-- GERADOR -->
+  <div class="section active" id="sec-gerador">
+    <div class="gen-grid">
+      <div class="card">
+        <h3><span>⚙️</span> Configurar Post</h3>
+
+        <label>Serviço em destaque</label>
+        <select id="servico">
+          <option value="limpeza">🧹 Limpeza e Conservação</option>
+          <option value="portaria">🏢 Portaria e Recepção</option>
+          <option value="facilities">🔧 Facilities e Manutenção</option>
+          <option value="condominio">🏗️ Condomínios e Síndicos</option>
+          <option value="lojas">🛍️ Lojas e Estabelecimentos</option>
+          <option value="hospitais">🏥 Hospitais e Clínicas</option>
+          <option value="empresas">🏭 Empresas / Escritórios</option>
+          <option value="geral">💼 Apresentação Geral LCS</option>
+        </select>
+
+        <label>Tema / Objetivo</label>
+        <select id="tema">
+          <option value="credibilidade">Transmitir credibilidade</option>
+          <option value="diferencial">Destacar diferenciais</option>
+          <option value="orcamento">Chamar para orçamento</option>
+          <option value="dica">Dica profissional</option>
+          <option value="resultado">Antes e depois / Resultados</option>
+          <option value="equipe">Valorizar a equipe</option>
+          <option value="cliente">Depoimento / Satisfação</option>
+        </select>
+
+        <label>Tom de voz</label>
+        <select id="tom">
+          <option value="profissional">Profissional e confiante</option>
+          <option value="amigavel">Amigável e próximo</option>
+          <option value="urgente">Urgente / Promoção</option>
+          <option value="educativo">Educativo / Informativo</option>
+        </select>
+
+        <label>Formato do conteúdo</label>
+        <select id="formato">
+          <option value="post">🖼️ Post — Feed (quadrado 1:1)</option>
+          <option value="reels">🎬 Reels — Vídeo vertical (9:16)</option>
+          <option value="stories">📱 Stories — Story (9:16)</option>
+        </select>
+
+        <label>Incluir hashtags?</label>
+        <select id="hashtags">
+          <option value="sim">✅ Sim, gerar hashtags</option>
+          <option value="nao">❌ Não</option>
+        </select>
+
+        <label>Data do post (opcional)</label>
+        <input type="date" id="data-post">
+
+        <button class="btn btn-primary btn-full" onclick="gerarPost()">
+          <span id="btn-gerar-txt">✨ Gerar com IA</span>
+        </button>
+      </div>
+
+      <div class="card">
+        <h3><span>📝</span> Legenda Gerada</h3>
+        <div class="output-box" id="output-legenda" style="position:relative;">
+          <em style="color:var(--muted)">Configure as opções ao lado e clique em "Gerar com IA" para criar sua legenda personalizada para o Instagram.</em>
+          <button class="copy-btn" onclick="copyText('output-legenda')">Copiar</button>
+        </div>
+
+        <hr class="divider">
+
+        <h3><span>#️⃣</span> Hashtags Sugeridas</h3>
+        <div class="tags-row" id="output-tags">
+          <span class="tag">#limpezaterceirizada</span>
+          <span class="tag">#portaria</span>
+          <span class="tag">#facilities</span>
+          <span class="tag">#portoalegre</span>
+          <span class="tag">#lcsterceirizacao</span>
+        </div>
+
+        <hr class="divider">
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="salvarPost('rascunho')">💾 Salvar Rascunho</button>
+          <button class="btn btn-green btn-sm" onclick="salvarPost('agendado')">📅 Agendar Post</button>
+          <button class="btn btn-secondary btn-sm" onclick="copiarTudo()">📋 Copiar Tudo</button>
+          <button class="btn btn-primary btn-sm" onclick="enviarBufferUnico()" id="btn-buffer-unico">📤 Enviar ao Buffer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMAGEM IA -->
+    <div class="card" style="margin-top:20px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <h3 style="margin:0;"><span>🎨</span> Imagem do Post — Gerada por IA</h3>
+        <button class="btn btn-primary btn-sm" onclick="gerarImagem()" id="btn-imagem">🎨 Gerar Imagem</button>
+      </div>
+      <div style="display:flex; gap:20px; align-items:flex-start;">
+        <div id="imagem-box" style="
+          width:280px; height:280px; flex-shrink:0;
+          background:var(--bg); border:2px dashed var(--border); border-radius:12px;
+          display:flex; align-items:center; justify-content:center;
+          flex-direction:column; gap:8px; color:var(--muted); font-size:13px;
+          text-align:center; padding:20px; overflow:hidden;
+        ">
+          <span style="font-size:36px;">🖼️</span>
+          Gere a legenda primeiro,<br>depois clique em "Gerar Imagem"
+        </div>
+        <div style="flex:1;">
+          <label>Prompt da imagem (editável antes de gerar)</label>
+          <textarea id="img-prompt" style="height:120px; font-size:12px;"></textarea>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="gerarImagem()">🔄 Regerar</button>
+            <button class="btn btn-green btn-sm" id="btn-baixar-img" style="display:none;" onclick="baixarImagem()">⬇️ Baixar PNG</button>
+          </div>
+          <p style="font-size:11px; color:var(--muted); margin-top:12px; line-height:1.7;">
+            💡 Gerado pelo <strong>Google Gemini</strong> — gratuito.<br>
+            Formato 1024×1024px — ideal para feed do Instagram.<br>
+            Após baixar, publique direto no <strong>@lcs_terceirizacao</strong>.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUGESTÕES RÁPIDAS -->
+    <div class="card" style="margin-top:20px;">
+      <h3><span>⚡</span> Sugestões de Temas para Esta Semana</h3>
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:8px;">
+        <div class="theme-card" onclick="aplicarTema('condominio','credibilidade')">
+          <span class="t-icon">🏗️</span>Síndicos
+        </div>
+        <div class="theme-card" onclick="aplicarTema('lojas','diferencial')">
+          <span class="t-icon">🛍️</span>Lojas
+        </div>
+        <div class="theme-card" onclick="aplicarTema('hospitais','credibilidade')">
+          <span class="t-icon">🏥</span>Hospitais
+        </div>
+        <div class="theme-card" onclick="aplicarTema('geral','orcamento')">
+          <span class="t-icon">📞</span>Orçamento
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALENDÁRIO -->
+  <div class="section" id="sec-calendario">
+    <div class="card">
+      <div class="cal-header">
+        <button class="btn btn-secondary btn-sm" onclick="mudaMes(-1)">← Anterior</button>
+        <h2 id="cal-titulo"></h2>
+        <button class="btn btn-secondary btn-sm" onclick="mudaMes(1)">Próximo →</button>
+      </div>
+      <div class="cal-grid" id="cal-dias-nomes"></div>
+      <div class="cal-grid" id="cal-cells" style="margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <!-- POSTS -->
+  <div class="section" id="sec-posts">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="filtrarPosts('todos')" id="f-todos">Todos</button>
+        <button class="btn btn-secondary btn-sm" onclick="filtrarPosts('agendado')" id="f-agendado">Agendados</button>
+        <button class="btn btn-secondary btn-sm" onclick="filtrarPosts('publicado')" id="f-publicado">Publicados</button>
+        <button class="btn btn-secondary btn-sm" onclick="filtrarPosts('rascunho')" id="f-rascunho">Rascunhos</button>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="switchTab('gerador', document.querySelector('.tab'))">+ Novo Post</button>
+    </div>
+    <div class="post-list" id="post-list-container">
+      <p style="color:var(--muted); text-align:center; padding:40px;">Nenhum post ainda. Gere seu primeiro post! ✨</p>
+    </div>
+  </div>
+
+  <!-- 30 DIAS -->
+  <div class="section" id="sec-trinta">
+    <div class="card" style="margin-bottom:20px;">
+      <h3><span>🗓️</span> Gerar 30 Posts Automáticos — 18h todos os dias</h3>
+      <p style="font-size:13px;color:var(--muted);margin:8px 0 18px;">A IA vai criar legendas variadas para cada dia do mês, cobrindo todos os seus segmentos (síndicos, lojas, hospitais, limpeza, portaria, facilities). Depois você envia tudo para o Buffer com 1 clique.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:18px;">
+        <div>
+          <label>Formato dos posts</label>
+          <select id="trinta-formato">
+            <option value="misto">🔀 Misto (Post+Stories+Reels)</option>
+            <option value="post">🖼️ Só Posts</option>
+            <option value="reels">🎬 Só Reels</option>
+            <option value="stories">📱 Só Stories</option>
+          </select>
+        </div>
+        <div>
+          <label>Mês de início</label>
+          <select id="trinta-mes">
+            <option value="0">Janeiro</option><option value="1">Fevereiro</option>
+            <option value="2">Março</option><option value="3">Abril</option>
+            <option value="4">Maio</option><option value="5">Junho</option>
+            <option value="6">Julho</option><option value="7">Agosto</option>
+            <option value="8">Setembro</option><option value="9">Outubro</option>
+            <option value="10">Novembro</option><option value="11">Dezembro</option>
+          </select>
+        </div>
+        <div>
+          <label>Ano</label>
+          <input type="number" id="trinta-ano" value="2026" min="2026" max="2030">
+        </div>
+        <div>
+          <label>Chave API Buffer</label>
+          <input type="password" id="buffer-key" value="7bapnxk-EY4t_nyw8veZ4x7Gv2j1oWQsiemb8kELYbj">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="previewImagem()" id="btn-preview">
+          🖼️ Preview de Imagem
+        </button>
+        <button class="btn btn-primary" onclick="gerarTrintaDias()" id="btn-30">
+          <span id="btn-30-txt">⚡ Gerar 30 Legendas com IA</span>
+        </button>
+        <button class="btn btn-green" onclick="enviarBufferTodos()" id="btn-buffer" style="display:none;">
+          📤 Enviar Todos para o Buffer
+        </button>
+        <span id="trinta-progresso" style="font-size:12px;color:var(--muted);"></span>
+      </div>
+
+      <!-- PREVIEW BOX -->
+      <div id="preview-box" style="display:none;margin-top:20px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+          <div id="preview-img-box" style="width:200px;height:200px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <span style="font-size:32px;">🖼️</span>
+          </div>
+          <div style="flex:1;min-width:200px;">
+            <p style="font-size:13px;color:var(--text);margin-bottom:12px;line-height:1.6;">
+              Veja uma amostra de como ficará a imagem antes de gerar os 30 posts.<br>
+              <span style="color:var(--muted);font-size:12px;">Selecione o serviço e formato acima, depois clique em Preview.</span>
+            </p>
+            <label style="font-size:12px;color:var(--muted);">Serviço para preview</label>
+            <select id="preview-servico" style="margin-bottom:10px;">
+              <option value="limpeza">🧹 Limpeza e Conservação</option>
+              <option value="portaria">🏢 Portaria e Recepção</option>
+              <option value="facilities">🔧 Facilities e Manutenção</option>
+              <option value="condominio">🏗️ Condomínios</option>
+              <option value="lojas">🛍️ Lojas e Estabelecimentos</option>
+              <option value="hospitais">🏥 Hospitais e Clínicas</option>
+              <option value="geral">💼 Geral LCS</option>
+            </select>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" onclick="gerarPreview()" id="btn-gerar-preview">🎨 Gerar Preview</button>
+              <button class="btn btn-green btn-sm" id="btn-baixar-preview" style="display:none;" onclick="baixarPreview()">⬇️ Baixar</button>
+              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('preview-box').style.display='none'">✕ Fechar</button>
+            </div>
+            <p id="preview-status" style="font-size:12px;color:var(--muted);margin-top:10px;"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROGRESS BAR -->
+    <div id="trinta-progress-bar-wrap" style="display:none;margin-bottom:20px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;height:10px;">
+        <div id="trinta-progress-bar" style="height:100%;background:var(--accent);transition:width .3s;width:0%;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;">
+        <span id="trinta-progress-label" style="font-size:12px;color:var(--muted);">Iniciando...</span>
+        <span id="trinta-progress-pct" style="font-size:12px;color:var(--accent2);">0%</span>
+      </div>
+    </div>
+
+    <!-- GRID DE POSTS -->
+    <div id="trinta-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
+  </div>
+
+  <!-- TEMAS -->
+  <div class="section" id="sec-temas">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" id="banco-temas"></div>
+  </div>
+
+</main>
+
+<!-- MODAL AGENDAR -->
+<div class="modal-overlay" id="modal-agendar">
+  <div class="modal">
+    <h3>📅 Agendar Post</h3>
+    <label>Data de publicação</label>
+    <input type="date" id="modal-data">
+    <label>Horário</label>
+    <select id="modal-hora">
+      <option>08:00</option><option>09:00</option><option>10:00</option>
+      <option>12:00</option><option>14:00</option><option selected>17:00</option>
+      <option>18:00</option><option>19:00</option><option>20:00</option>
+    </select>
+    <label>Legenda</label>
+    <textarea id="modal-legenda" style="height:100px;"></textarea>
+    <label>Hashtags</label>
+    <input type="text" id="modal-tags">
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarAgendamento()">✅ Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COMPANY = {
+  nome: "LCS Terceirização",
+  instagram: "@lcs_terceirizacao",
+  whatsapp: "(51) 99889-3033",
+  cidade: "Porto Alegre, RS",
+  servicos: ["limpeza e conservação","portaria","recepção","facilities","manutenção predial","condomínios"],
+  site: "lcsterceirizacaors.com.br"
+};
+
+let posts = JSON.parse(localStorage.getItem('lcs_posts') || '[]');
+let calMes = new Date().getMonth();
+let calAno = new Date().getFullYear();
+let ultimaLegenda = '';
+let ultimasTags = [];
+
+// NAV
+function setNav(el, tab) {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  switchTab(tab, document.querySelectorAll('.tab')[['gerador','trinta','calendario','posts','temas'].indexOf(tab)]);
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+id)?.classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(id==='calendario') renderCalendario();
+  if(id==='posts') renderPosts();
+  if(id==='temas') renderTemas();
+  if(id==='trinta') initTrinta();
+  updateStats();
+}
+
+// STATS
+function updateStats() {
+  document.getElementById('st-total').textContent = posts.length;
+  document.getElementById('st-sched').textContent = posts.filter(p=>p.status==='agendado').length;
+  document.getElementById('st-pub').textContent = posts.filter(p=>p.status==='publicado').length;
+  document.getElementById('st-draft').textContent = posts.filter(p=>p.status==='rascunho').length;
+}
+
+// GERAR POST
+async function gerarPost() {
+  const servico = document.getElementById('servico').value;
+  const tema = document.getElementById('tema').value;
+  const tom = document.getElementById('tom').value;
+  const comHashtags = document.getElementById('hashtags').value === 'sim';
+
+  const btn = document.getElementById('btn-gerar-txt');
+  btn.innerHTML = '<span class="spinner"></span> Gerando...';
+
+  const servicoLabel = document.getElementById('servico').options[document.getElementById('servico').selectedIndex].text;
+  const temaLabel = document.getElementById('tema').options[document.getElementById('tema').selectedIndex].text;
+  const tomLabel = document.getElementById('tom').options[document.getElementById('tom').selectedIndex].text;
+  const formato = document.getElementById('formato').value;
+  const formatoLabel = document.getElementById('formato').options[document.getElementById('formato').selectedIndex].text;
+
+  const formatoInstrucoes = {
+    post: 'Legenda para POST no feed: máximo 220 caracteres, impactante, com call-to-action.',
+    reels: 'Legenda para REELS: máximo 150 caracteres, dinâmica e energética. Também gere um ROTEIRO CURTO de 15-30 segundos com: [GANCHO] (primeiros 3s), [DESENVOLVIMENTO] (cenas), [CTA FINAL]. Separe a legenda e o roteiro com ---ROTEIRO---.',
+    stories: 'Texto para STORIES: muito curto (máximo 80 caracteres), direto, impactante. Também sugira 3 elementos visuais para o story (ex: enquete, caixa de perguntas, link, sticker). Separe com ---ELEMENTOS---.'
+  };
+
+  // Update prompt with formato
+  const promptFormato = formatoInstrucoes[formato] || formatoInstrucoes.post;
+
+  const segmentoHashtags = {
+    limpeza: '#limpezaprofissional,#limpezaterceirizada,#conservacaopredial,#limpezacorporativa,#higienizacao',
+    portaria: '#portariaterceirizada,#portaria24h,#segurancacondominio,#recepcao,#controledeacesso',
+    facilities: '#facilities,#facilitiesmanagement,#manutencaopredial,#gestaopredial,#manutencaopreventiva',
+    condominio: '#sindicos,#condominio,#condominioportoalegre,#sindicosrs,#gestaocondominio,#condominiolimpo',
+    lojas: '#lojas,#estabelecimentos,#limpezacomercial,#comercioPOA,#limpezadelojas,#estabelecimentoscomerciais',
+    hospitais: '#hospitais,#clinicas,#limpezahospitalar,#higienizacaohospitalar,#saudeeprevencao,#limpezaclinica',
+    empresas: '#empresasportoalegre,#escritorios,#limpezaescritorio,#tercerizacaoRS,#gestaoempresarial',
+    geral: '#terceirizacao,#terceirizacaors,#lcsterceirizacao,#portoalegre,#serviçosterceirizados'
+  };
+
+  const hashtagsBase = '#lcsterceirizacao,#terceirizacaors,#portoalegre,#grandeportoalegre,#sindicos,#condominio,#lojas,#estabelecimentos,#hospitais';
+  const hashtagsSegmento = segmentoHashtags[servico] || '';
+
+  const segAlvoPost = servico === 'condominio' ? 'Síndicos e administradoras de condomínio' : servico === 'lojas' ? 'Donos de lojas, estabelecimentos comerciais e shoppings' : servico === 'hospitais' ? 'Hospitais, clínicas e estabelecimentos de saúde' : 'Empresas e condomínios em geral';
+
+const prompt = `Você é especialista em marketing digital B2B de serviços terceirizados no Brasil.
+
+Crie uma legenda ELABORADA e PROFISSIONAL para Instagram da empresa "${COMPANY.nome}" (${COMPANY.instagram}), Porto Alegre RS.
+
+SERVIÇO: ${servicoLabel} | PÚBLICO: ${segAlvoPost} | OBJETIVO: ${temaLabel} | TOM: ${tomLabel}
+FORMATO: ${formatoLabel}
+CONTATO: WhatsApp ${COMPANY.whatsapp} | Site: ${COMPANY.site}
+
+ESTRUTURA OBRIGATÓRIA:
+${formato === 'post' ? `1. GANCHO impactante (pergunta ou afirmação forte) — 1 linha
+2. DESENVOLVIMENTO: 2-3 frases sobre diferenciais e benefícios concretos
+3. CALL-TO-ACTION direto com WhatsApp
+Total: máximo 400 caracteres` : formato === 'reels' ? `Legenda curta (máximo 150 chars) + ---ROTEIRO--- com:
+[GANCHO 3s]: frase de impacto para parar o scroll
+[CENAS]: 3-4 cenas de 5s cada mostrando o serviço
+[CTA FINAL]: chamada para WhatsApp` : `Texto curtíssimo (máximo 80 chars) super impactante + ---ELEMENTOS--- com 3 sugestões de elementos interativos (enquete, caixa de perguntas, link)`}
+
+REGRAS:
+- Linguagem ${tom === 'profissional' ? 'formal e confiante' : tom === 'amigavel' ? 'próxima e calorosa' : tom === 'urgente' ? 'urgente com senso de oportunidade' : 'educativa e informativa'}
+- Mencione Porto Alegre ou Grande Porto Alegre
+- Máximo 3 emojis estratégicos
+- Benefícios concretos de ${servicoLabel.replace(/[^\w\s]/gi,'')}
+${comHashtags ? `- Liste hashtags após ---HASHTAGS---. Obrigatórias: ${hashtagsBase} | Segmento: ${hashtagsSegmento}` : ''}
+
+Responda APENAS com a legenda estruturada.`;
+
+  const box = document.getElementById('output-legenda');
+  box.classList.add('loading');
+
+  try {
+    const res = await fetch('/api/claude', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:600,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data = await res.json();
+    const full = data.content?.[0]?.text || '';
+
+    let legenda = full, tags = [], extra = '';
+    // Extract hashtags
+    if(comHashtags && full.includes('---HASHTAGS---')) {
+      const parts = full.split('---HASHTAGS---');
+      legenda = parts[0].trim();
+      tags = parts[1]?.trim().split(',').map(t=>t.trim()).filter(t=>t.startsWith('#')) || [];
+    }
+    // Extract roteiro (Reels)
+    if(legenda.includes('---ROTEIRO---')) {
+      const parts = legenda.split('---ROTEIRO---');
+      legenda = parts[0].trim();
+      extra = parts[1]?.trim() || '';
+    }
+    // Extract elementos (Stories)
+    if(legenda.includes('---ELEMENTOS---')) {
+      const parts = legenda.split('---ELEMENTOS---');
+      legenda = parts[0].trim();
+      extra = parts[1]?.trim() || '';
+    }
+
+    ultimaLegenda = legenda;
+    ultimasTags = tags.length ? tags : ['#lcsterceirizacao','#terceirizacaors','#portoalegre','#grandeportoalegre','#sindicos','#condominio','#lojas','#estabelecimentos','#hospitais','#limpezaprofissional','#terceirizacao','#facilitiesportoalegre'];
+
+    // Show extra content (roteiro/elementos)
+    const extraHtml = extra ? `<div style="margin-top:12px;padding:10px 12px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2);border-radius:8px;font-size:12px;color:var(--text);line-height:1.7;white-space:pre-wrap;">${formato==='reels'?'🎬 Roteiro Reels:':'📱 Elementos do Story:'}<br>${extra}</div>` : '';
+
+    box.classList.remove('loading');
+    box.innerHTML = `${legenda}${extraHtml}<button class="copy-btn" onclick="copyText('output-legenda')">Copiar</button>`;
+
+    const tagsRow = document.getElementById('output-tags');
+    tagsRow.innerHTML = ultimasTags.map(t=>`<span class="tag">${t}</span>`).join('');
+
+    // Auto-fill image prompt based on formato
+    const aspectoLabel = formato === 'post' ? '1:1 square feed post' : '9:16 vertical story/reels';
+    const autoPrompt = buildImagePrompt(servico, tema, legenda) + (formato !== 'post' ? ' Vertical 9:16 composition, portrait orientation.' : '');
+    document.getElementById('img-prompt').value = autoPrompt;
+    // Update formato badge
+    const formatoBadges = {post:'🖼️ Post', reels:'🎬 Reels', stories:'📱 Stories'};
+    document.querySelector('#sec-gerador .card:nth-child(2) h3').innerHTML = `<span>📝</span> ${formatoBadges[formato]||'Post'} Gerado`;
+    // Update image box size
+    const imgBox = document.getElementById('imagem-box');
+    if(formato === 'post') {
+      imgBox.style.width = '280px'; imgBox.style.height = '280px';
+    } else {
+      imgBox.style.width = '158px'; imgBox.style.height = '280px';
+    }
+    // Update image aspect ratio for Gemini
+    window._imgAspecto = formato === 'post' ? '1:1' : '9:16';
+    document.getElementById('btn-baixar-img').style.display = 'none';
+    ultimaImagemUrl = null;
+    document.getElementById('imagem-box').innerHTML = `<span style="font-size:36px;">🖼️</span><span style="margin-top:8px;font-size:13px;text-align:center;">Legenda pronta!<br>Clique em "Gerar Imagem" ✨</span>`;
+
+    showToast('✅ Legenda gerada com sucesso!');
+  } catch(e) {
+    box.classList.remove('loading');
+    box.innerHTML = `Erro ao conectar com a IA. Verifique sua conexão.<button class="copy-btn" onclick="copyText('output-legenda')">Copiar</button>`;
+  }
+
+  btn.innerHTML = '✨ Gerar com IA';
+}
+
+function aplicarTema(s, t) {
+  document.getElementById('servico').value = s;
+  document.getElementById('tema').value = t;
+  document.querySelectorAll('.theme-card').forEach(c=>c.classList.remove('selected'));
+  event.target.closest('.theme-card')?.classList.add('selected');
+}
+
+// SALVAR POST
+function salvarPost(status) {
+  const legenda = ultimaLegenda || document.getElementById('output-legenda').innerText;
+  if(!legenda || legenda.includes('Configure as opções')) { showToast('⚠️ Gere uma legenda primeiro!'); return; }
+
+  if(status === 'agendado') {
+    document.getElementById('modal-legenda').value = legenda;
+    document.getElementById('modal-tags').value = ultimasTags.join(' ');
+    const hoje = new Date(); hoje.setDate(hoje.getDate()+1);
+    document.getElementById('modal-data').value = hoje.toISOString().split('T')[0];
+    document.getElementById('modal-agendar').classList.add('open');
+    return;
+  }
+
+  const post = {
+    id: Date.now(),
+    legenda,
+    tags: ultimasTags,
+    status,
+    data: new Date().toLocaleDateString('pt-BR'),
+    hora: '',
+    servico: document.getElementById('servico').options[document.getElementById('servico').selectedIndex].text,
+    emoji: getEmoji(document.getElementById('servico').value)
+  };
+  posts.unshift(post);
+  salvar();
+  showToast('💾 Rascunho salvo!');
+}
+
+function confirmarAgendamento() {
+  const legenda = document.getElementById('modal-legenda').value;
+  const data = document.getElementById('modal-data').value;
+  const hora = document.getElementById('modal-hora').value;
+  const tags = document.getElementById('modal-tags').value;
+
+  if(!data || !legenda) { showToast('⚠️ Preencha todos os campos!'); return; }
+
+  const post = {
+    id: Date.now(),
+    legenda,
+    tags: tags.split(' ').filter(t=>t.startsWith('#')),
+    status: 'agendado',
+    data: new Date(data+'T12:00').toLocaleDateString('pt-BR'),
+    dataISO: data,
+    hora,
+    servico: document.getElementById('servico').options[document.getElementById('servico').selectedIndex].text,
+    emoji: getEmoji(document.getElementById('servico').value)
+  };
+  posts.unshift(post);
+  salvar();
+  fecharModal();
+  showToast('📅 Post agendado com sucesso!');
+}
+
+function fecharModal() {
+  document.getElementById('modal-agendar').classList.remove('open');
+}
+
+function getEmoji(s) {
+  const map={limpeza:'🧹',portaria:'🏢',facilities:'🔧',condominio:'🏗️',lojas:'🛍️',hospitais:'🏥',empresas:'🏭',geral:'💼'};
+  return map[s]||'📷';
+}
+
+function salvar() {
+  localStorage.setItem('lcs_posts', JSON.stringify(posts));
+  updateStats();
+}
+
+// POSTS LIST
+function renderPosts(filtro='todos') {
+  const container = document.getElementById('post-list-container');
+  let lista = filtro==='todos' ? posts : posts.filter(p=>p.status===filtro);
+  if(!lista.length) {
+    container.innerHTML = `<p style="color:var(--muted);text-align:center;padding:40px;">${filtro==='todos'?'Nenhum post ainda. Gere seu primeiro post! ✨':'Nenhum post nesta categoria.'}</p>`;
+    return;
+  }
+  container.innerHTML = lista.map(p=>`
+    <div class="post-item">
+      <div class="post-thumb" style="background:var(--surface2);">${p.emoji}</div>
+      <div class="post-info">
+        <div class="post-title">${p.legenda.substring(0,80)}${p.legenda.length>80?'...':''}</div>
+        <div class="post-meta">${p.servico} · ${p.data}${p.hora?' às '+p.hora:''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="post-status status-${p.status}">${p.status==='agendado'?'📅 Agendado':p.status==='publicado'?'✅ Publicado':'📝 Rascunho'}</span>
+        <button class="btn btn-secondary btn-sm" onclick="deletarPost(${p.id})">🗑️</button>
+        ${p.status!=='publicado'?`<button class="btn btn-green btn-sm" onclick="marcarPublicado(${p.id})">✅</button>`:''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function filtrarPosts(f) { renderPosts(f); }
+
+function deletarPost(id) {
+  posts = posts.filter(p=>p.id!==id);
+  salvar();
+  renderPosts();
+  showToast('🗑️ Post removido.');
+}
+
+function marcarPublicado(id) {
+  const p = posts.find(p=>p.id===id);
+  if(p) p.status='publicado';
+  salvar();
+  renderPosts();
+  showToast('✅ Marcado como publicado!');
+}
+
+// CALENDÁRIO
+function renderCalendario() {
+  const nomes = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  document.getElementById('cal-dias-nomes').innerHTML = nomes.map(n=>`<div class="cal-day-name">${n}</div>`).join('');
+
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  document.getElementById('cal-titulo').textContent = `${meses[calMes]} ${calAno}`;
+
+  const primeiro = new Date(calAno, calMes, 1).getDay();
+  const total = new Date(calAno, calMes+1, 0).getDate();
+  const hoje = new Date();
+
+  let cells = '';
+  for(let i=0;i<primeiro;i++) cells += '<div></div>';
+  for(let d=1;d<=total;d++) {
+    const dateStr = `${calAno}-${String(calMes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayPosts = posts.filter(p=>p.dataISO===dateStr);
+    const isToday = d===hoje.getDate() && calMes===hoje.getMonth() && calAno===hoje.getFullYear();
+    cells += `<div class="cal-cell ${isToday?'today':''} ${dayPosts.length?'has-post':''}">
+      <div class="cal-num">${d}</div>
+      ${dayPosts.map(p=>`<div class="cal-post-pill">${p.emoji} ${p.legenda.substring(0,18)}...</div>`).join('')}
+    </div>`;
+  }
+  document.getElementById('cal-cells').innerHTML = cells;
+}
+
+function mudaMes(dir) {
+  calMes += dir;
+  if(calMes>11){calMes=0;calAno++;}
+  if(calMes<0){calMes=11;calAno--;}
+  renderCalendario();
+}
+
+// BANCO DE TEMAS
+function renderTemas() {
+  const temas = [
+    {icon:'🏗️', titulo:'Síndicos e Condomínios', desc:'Conteúdo direcionado a síndicos e administradoras: limpeza, portaria e gestão condominial.', sugestoes:['#sindicos','#condominio','Portaria profissional','Condomínio limpo']},
+    {icon:'🛍️', titulo:'Lojas e Estabelecimentos', desc:'Posts para donos de lojas, shoppings e estabelecimentos comerciais que precisam de limpeza.', sugestoes:['#lojas','#estabelecimentos','Ambiente limpo','Limpeza comercial']},
+    {icon:'🏥', titulo:'Hospitais e Clínicas', desc:'Conteúdo sobre higienização hospitalar, biossegurança e limpeza especializada para saúde.', sugestoes:['#hospitais','#clinicas','Higienização rigorosa','Biossegurança']},
+    {icon:'🧹', titulo:'Limpeza Profissional', desc:'Posts sobre higienização, conservação predial, limpeza de escritórios e condomínios.', sugestoes:['Antes e depois','Produtos certificados','Equipe treinada']},
+    {icon:'🏢', titulo:'Portaria e Recepção', desc:'Conteúdos sobre segurança condominial, controle de acesso e recepção corporativa.', sugestoes:['Portaria 24h','Controle de acesso','Profissionalismo']},
+    {icon:'🔧', titulo:'Facilities e Manutenção', desc:'Posts sobre manutenção preventiva, facilities management e gestão predial.', sugestoes:['Manutenção preventiva','Gestão de facilities','Economia de custos']},
+    {icon:'📞', titulo:'Captação de Leads', desc:'Posts com foco em gerar orçamentos e contatos pelo WhatsApp.', sugestoes:['Orçamento grátis','Atendimento rápido','Solicite já']},
+    {icon:'🏆', titulo:'Diferenciais LCS', desc:'O que torna a LCS diferente da concorrência em Porto Alegre.', sugestoes:['Por que escolher LCS','Experiência comprovada','Qualidade garantida']},
+    {icon:'🌟', titulo:'Cases e Resultados', desc:'Depoimentos e casos de sucesso com síndicos, lojas, clínicas e empresas.', sugestoes:['Cliente satisfeito','Resultado garantido','Parceria de sucesso']},
+    {icon:'👥', titulo:'Nossa Equipe', desc:'Valorização dos colaboradores e cultura da empresa LCS.', sugestoes:['Profissionais treinados','Nossa equipe','Compromisso com qualidade']},
+  ];
+
+  document.getElementById('banco-temas').innerHTML = temas.map(t=>`
+    <div class="card">
+      <h3><span>${t.icon}</span> ${t.titulo}</h3>
+      <p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px;">${t.desc}</p>
+      <div class="tags-row" style="margin-bottom:12px;">${t.sugestoes.map(s=>`<span class="tag">${s}</span>`).join('')}</div>
+      <button class="btn btn-secondary btn-sm btn-full" onclick="usarTema('${t.titulo}')">Usar este tema</button>
+    </div>
+  `).join('');
+}
+
+function usarTema(nome) {
+  switchTab('gerador', document.querySelector('.tab'));
+  showToast(`✅ Tema "${nome}" selecionado!`);
+}
+
+// GEMINI IMAGE KEY
+const GEMINI_KEY = ''; // chave movida para Netlify Functions
+let ultimaImagemUrl = null;
+
+function buildImagePrompt(servico, tema, legenda) {
+  const temaVariacoes = {
+    credibilidade: 'sorrindo confiante olhando para a câmera, postura profissional e segura',
+    diferencial: 'mostrando resultado impecável, ambiente brilhante ao fundo',
+    orcamento: 'gesticulando para o ambiente limpo ao redor, expressão de orgulho',
+    dica: 'close no rosto sorridente do profissional com equipamento na mão',
+    resultado: 'braços abertos mostrando ambiente completamente transformado e limpo',
+    equipe: 'grupo de 2 a 3 profissionais sorridentes em pose de equipe unida',
+    cliente: 'apertando mão de cliente satisfeito, ambos sorrindo'
+  };
+  const temaExtra = temaVariacoes[tema] || 'postura profissional e sorridente';
+
+  const cenarios = {
+    limpeza: `homem brasileiro de uniforme bordô escuro segurando mop, fundo azul royal com elementos gráficos vermelhos, estilo poster publicitário moderno, ${temaExtra}`,
+    portaria: `porteiro brasileiro jovem de terno preto e gravata segurando rádio comunicador, fundo azul royal com elementos geométricos vermelhos, estilo poster corporativo, ${temaExtra}`,
+    facilities: `técnico brasileiro com ferramentas e uniforme azul escuro, fundo vermelho e azul com elementos gráficos modernos, estilo publicidade profissional, ${temaExtra}`,
+    condominio: `síndico ou gestor brasileiro de terno em frente a condomínio moderno, fundo azul royal com elementos vermelhos e brancos, estilo poster corporativo, ${temaExtra}`,
+    lojas: `funcionária brasileira uniformizada com luvas amarelas e produtos de limpeza, fundo azul royal vibrante com elementos gráficos vermelhos, estilo anúncio moderno, ${temaExtra}`,
+    hospitais: `profissional brasileiro com jaleco branco e máscara em ambiente de saúde limpo, fundo azul e vermelho com elementos geométricos modernos, estilo poster médico, ${temaExtra}`,
+    empresas: `executivo brasileiro sorridente em escritório moderno limpo, fundo azul royal com elementos vermelhos e brancos, estilo publicidade corporativa, ${temaExtra}`,
+    geral: `profissional brasileiro de uniforme bordô escuro com logo LCS, fundo azul royal vibrante com elementos gráficos vermelhos modernos, estilo poster publicitário brasileiro, ${temaExtra}`
+  };
+  const base = cenarios[servico] || cenarios.geral;
+  return `${base}. Estilo poster publicitário brasileiro moderno, cores vibrantes azul royal e vermelho, fotorrealista, alta qualidade, iluminação de estúdio profissional, sem texto sobreposto.`;
+}
+
+async function gerarImagem() {
+  if(!ultimaLegenda || ultimaLegenda.includes('Configure')) {
+    showToast('⚠️ Gere a legenda primeiro!'); return;
+  }
+
+  const btn = document.getElementById('btn-imagem');
+  btn.innerHTML = '<span class="spinner"></span> Gerando...';
+  btn.disabled = true;
+
+  const servico = document.getElementById('servico').value;
+  const tema = document.getElementById('tema').value;
+
+  // Build prompt
+  let promptCustom = document.getElementById('img-prompt').value.trim();
+  if(!promptCustom) {
+    promptCustom = buildImagePrompt(servico, tema, ultimaLegenda);
+    document.getElementById('img-prompt').value = promptCustom;
+  }
+
+  const box = document.getElementById('imagem-box');
+  box.innerHTML = `<span class="spinner" style="width:32px;height:32px;border-width:3px;"></span><span style="margin-top:12px;font-size:13px;color:var(--muted)">Gerando imagem com IA...</span>`;
+
+  try {
+    const servicoVal = document.getElementById('servico').value;
+    const formatoVal = document.getElementById('formato').value;
+    const aspecto = window._imgAspecto || '1:1';
+    const w = aspecto === '9:16' ? 576 : 1024;
+    const h = aspecto === '9:16' ? 1024 : 1024;
+    const seed = Math.floor(Math.random()*99999);
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptCustom.substring(0,300))}?width=${w}&height=${h}&model=flux&nologo=true&seed=${seed}`;
+
+    box.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;flex-direction:column;gap:8px;"><span class="spinner" style="width:28px;height:28px;border-width:3px;"></span><span style="font-size:12px;color:var(--muted)">Gerando imagem...</span></div>`;
+
+    const tempImg = new Image();
+    tempImg.crossOrigin = 'anonymous';
+    tempImg.onload = async () => {
+      const canvasUrl = await adicionarTextoImagem(imgUrl, servicoVal, ultimaLegenda, formatoVal);
+      ultimaImagemUrl = canvasUrl;
+      box.innerHTML = `<img src="${canvasUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+      document.getElementById('btn-baixar-img').style.display = 'inline-flex';
+      showToast('🎨 Imagem com texto gerada!');
+    };
+    tempImg.onerror = () => {
+      box.innerHTML = `<span style="font-size:28px;">⚠️</span><span style="font-size:12px;color:var(--muted);margin-top:8px;">Erro ao carregar.<br>Tente novamente.</span>`;
+    };
+    tempImg.src = imgUrl;
+  } catch(e) {
+    console.error(e);
+    box.innerHTML = `<span style="font-size:28px;">⚠️</span><span style="font-size:12px;color:var(--muted);margin-top:8px;">Erro ao gerar imagem.<br>Tente novamente.</span>`;
+    showToast('❌ Erro ao gerar imagem.');
+  }
+
+  btn.innerHTML = '🎨 Gerar Imagem';
+  btn.disabled = false;
+}
+
+// CANVAS TEXT OVERLAY
+async function adicionarTextoImagem(imgUrl, servico, legenda, formato) {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const isVertical = formato === 'stories' || formato === 'reels';
+    canvas.width = isVertical ? 576 : 1024;
+    canvas.height = isVertical ? 1024 : 1024;
+    const ctx = canvas.getContext('2d');
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // Draw base image
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // Dark gradient overlay at bottom
+      const grad = ctx.createLinearGradient(0, canvas.height * 0.45, 0, canvas.height);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.4, 'rgba(0,20,60,0.7)');
+      grad.addColorStop(1, 'rgba(0,10,40,0.92)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Blue accent bar at bottom
+      ctx.fillStyle = '#1e40af';
+      ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+
+      // Service label (top left badge)
+      const servicoLabels = {
+        limpeza:'🧹 Limpeza Profissional', portaria:'🏢 Portaria & Recepção',
+        facilities:'🔧 Facilities', condominio:'🏗️ Condomínios',
+        lojas:'🛍️ Lojas & Comércio', hospitais:'🏥 Hospitais & Clínicas',
+        empresas:'🏭 Empresas', geral:'💼 LCS Terceirização'
+      };
+      const servicoLabel = servicoLabels[servico] || 'LCS Terceirização';
+
+      // Badge background
+      ctx.fillStyle = '#dc2626';
+      const badgeW = ctx.measureText(servicoLabel).width + 80;
+      roundRect(ctx, 24, 24, badgeW, 44, 8);
+      ctx.fill();
+
+      // Badge text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 20px Arial';
+      ctx.fillText(servicoLabel, 42, 52);
+
+      // Main headline - first sentence of legenda
+      const headline = legenda.split('.')[0].split('!')[0].substring(0, 55);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${canvas.width > 576 ? 42 : 34}px Arial`;
+      wrapText(ctx, headline, 30, canvas.height * 0.58, canvas.width - 60, 50);
+
+      // Slogan
+      ctx.fillStyle = '#93c5fd';
+      ctx.font = `${canvas.width > 576 ? 24 : 20}px Arial`;
+      ctx.fillText('Qualidade • Confiança • Profissionalismo', 30, canvas.height - 90);
+
+      // Bottom bar text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${canvas.width > 576 ? 22 : 18}px Arial`;
+      ctx.fillText('📱 (51) 99889-3033', 24, canvas.height - 46);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${canvas.width > 576 ? 20 : 16}px Arial`;
+      ctx.fillText('@lcs_terceirizacao', canvas.width - 24, canvas.height - 46);
+      ctx.textAlign = 'left';
+
+      resolve(canvas.toDataURL('image/jpeg', 0.92));
+    };
+    img.onerror = () => resolve(imgUrl); // fallback to original
+    img.src = imgUrl;
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '';
+  for(let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + ' ';
+    if(ctx.measureText(testLine).width > maxWidth && n > 0) {
+      ctx.fillText(line, x, y);
+      line = words[n] + ' ';
+      y += lineHeight;
+    } else { line = testLine; }
+  }
+  ctx.fillText(line, x, y);
+}
+
+async function enviarBufferUnico() {
+  if(!ultimaLegenda || ultimaLegenda.includes('Configure')) {
+    showToast('⚠️ Gere uma legenda primeiro!'); return;
+  }
+
+  const btn = document.getElementById('btn-buffer-unico');
+  btn.innerHTML = '<span class="spinner"></span> Enviando...';
+  btn.disabled = true;
+
+  try {
+    const bufferKey = document.getElementById('buffer-key').value.trim();
+    if(!bufferKey) { showToast('⚠️ Cole a chave do Buffer na aba 30 Dias!'); btn.innerHTML = '📤 Enviar ao Buffer'; btn.disabled = false; return; }
+
+    // Get channel ID
+    const chRes = await fetch('/api/buffer', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({query:`{ organizations { channels { id name serviceType } } }`, key: bufferKey})
+    });
+    const chData = await chRes.json();
+    const channels = chData?.data?.organizations?.[0]?.channels || [];
+    const igChannel = channels.find(c=>
+      c.serviceType==='instagram' || c.serviceType==='instagram_business' ||
+      c.name?.toLowerCase().includes('lcs') || c.name?.toLowerCase().includes('terceirizacao')
+    );
+    const channelId = igChannel?.id || channels[0]?.id;
+
+    if(!channelId) {
+      showToast('❌ Canal Instagram não encontrado no Buffer!');
+      btn.innerHTML = '📤 Enviar ao Buffer';
+      btn.disabled = false;
+      return;
+    }
+
+    // Pick date - tomorrow at 18h by default
+    const dataInput = document.getElementById('data-post').value;
+    const date = dataInput ? new Date(dataInput + 'T18:00:00') : new Date(Date.now() + 86400000);
+    const scheduledAt = date.toISOString().replace('Z', '-03:00').substring(0,19) + '-03:00';
+
+    const texto = `${ultimaLegenda}
+
+${ultimasTags.join(' ')}`;
+
+    const mutation = `
+      mutation CreatePost($input: CreatePostInput!) {
+        createPost(input: $input) { post { id status } }
+      }`;
+
+    const res = await fetch('/api/buffer', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        query: mutation,
+        variables: { input: { channelId, content: { text: texto }, scheduling: { scheduledAt } } },
+        key: bufferKey
+      })
+    });
+
+    const data = await res.json();
+    if(data?.data?.createPost?.post) {
+      showToast('✅ Post enviado ao Buffer com sucesso!');
+      salvarPost('agendado');
+    } else {
+      throw new Error(JSON.stringify(data));
+    }
+  } catch(e) {
+    console.error(e);
+    showToast('❌ Erro ao enviar para o Buffer.');
+  }
+
+  btn.innerHTML = '📤 Enviar ao Buffer';
+  btn.disabled = false;
+}
+
+function baixarImagem() {
+  if(!ultimaImagemUrl) return;
+  const a = document.createElement('a');
+  a.href = ultimaImagemUrl;
+  a.download = `lcs_post_${Date.now()}.png`;
+  a.click();
+  showToast('⬇️ Download iniciado!');
+}
+
+// UTILITÁRIOS
+function copyText(id) {
+  const el = document.getElementById(id);
+  const txt = el.innerText.replace('Copiar','').trim();
+  navigator.clipboard.writeText(txt).then(()=>showToast('📋 Copiado!'));
+}
+
+function copiarTudo() {
+  const legenda = ultimaLegenda;
+  const tags = ultimasTags.join(' ');
+  navigator.clipboard.writeText(`${legenda}\n\n${tags}`).then(()=>showToast('📋 Legenda + hashtags copiadas!'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+// =============================================
+// 30 DIAS — GERAÇÃO EM MASSA
+// =============================================
+let trintaPosts = [];
+
+const PLANO_30 = [
+  {servico:'condominio', tema:'credibilidade', tom:'profissional'},
+  {servico:'limpeza',    tema:'resultado',     tom:'amigavel'},
+  {servico:'lojas',      tema:'diferencial',   tom:'profissional'},
+  {servico:'portaria',   tema:'credibilidade', tom:'profissional'},
+  {servico:'hospitais',  tema:'credibilidade', tom:'educativo'},
+  {servico:'facilities', tema:'dica',          tom:'educativo'},
+  {servico:'geral',      tema:'orcamento',     tom:'urgente'},
+  {servico:'condominio', tema:'diferencial',   tom:'amigavel'},
+  {servico:'limpeza',    tema:'dica',          tom:'educativo'},
+  {servico:'lojas',      tema:'resultado',     tom:'amigavel'},
+  {servico:'portaria',   tema:'diferencial',   tom:'profissional'},
+  {servico:'hospitais',  tema:'dica',          tom:'educativo'},
+  {servico:'facilities', tema:'resultado',     tom:'amigavel'},
+  {servico:'geral',      tema:'equipe',        tom:'amigavel'},
+  {servico:'condominio', tema:'orcamento',     tom:'urgente'},
+  {servico:'limpeza',    tema:'credibilidade', tom:'profissional'},
+  {servico:'lojas',      tema:'orcamento',     tom:'urgente'},
+  {servico:'hospitais',  tema:'resultado',     tom:'profissional'},
+  {servico:'portaria',   tema:'resultado',     tom:'amigavel'},
+  {servico:'facilities', tema:'credibilidade', tom:'profissional'},
+  {servico:'geral',      tema:'cliente',       tom:'amigavel'},
+  {servico:'condominio', tema:'dica',          tom:'educativo'},
+  {servico:'limpeza',    tema:'orcamento',     tom:'urgente'},
+  {servico:'lojas',      tema:'credibilidade', tom:'profissional'},
+  {servico:'hospitais',  tema:'diferencial',   tom:'profissional'},
+  {servico:'facilities', tema:'orcamento',     tom:'urgente'},
+  {servico:'portaria',   tema:'cliente',       tom:'amigavel'},
+  {servico:'geral',      tema:'diferencial',   tom:'profissional'},
+  {servico:'condominio', tema:'resultado',     tom:'amigavel'},
+  {servico:'limpeza',    tema:'equipe',        tom:'amigavel'},
+];
+
+const SERVICO_LABELS = {
+  limpeza:'Limpeza e Conservação', portaria:'Portaria e Recepção',
+  facilities:'Facilities e Manutenção', condominio:'Condomínios e Síndicos',
+  lojas:'Lojas e Estabelecimentos', hospitais:'Hospitais e Clínicas',
+  empresas:'Empresas / Escritórios', geral:'LCS Terceirização'
+};
+const TEMA_LABELS = {
+  credibilidade:'Transmitir credibilidade', diferencial:'Destacar diferenciais',
+  orcamento:'Chamar para orçamento', dica:'Dica profissional',
+  resultado:'Resultados / Antes e depois', equipe:'Valorizar a equipe',
+  cliente:'Depoimento / Satisfação'
+};
+const TOM_LABELS = {
+  profissional:'Profissional e confiante', amigavel:'Amigável e próximo',
+  urgente:'Urgente / Promoção', educativo:'Educativo / Informativo'
+};
+
+const SEGMENT_HASHTAGS_30 = {
+  limpeza:'#limpezaprofissional,#limpezaterceirizada,#conservacaopredial',
+  portaria:'#portariaterceirizada,#portaria24h,#segurancacondominio',
+  facilities:'#facilities,#facilitiesmanagement,#manutencaopredial',
+  condominio:'#sindicos,#condominio,#sindicosrs,#gestaocondominio',
+  lojas:'#lojas,#estabelecimentos,#limpezacomercial',
+  hospitais:'#hospitais,#clinicas,#limpezahospitalar',
+  empresas:'#empresasportoalegre,#escritorios',
+  geral:'#terceirizacao,#lcsterceirizacao'
+};
+
+function initTrinta() {
+  const hoje = new Date();
+  document.getElementById('trinta-mes').value = hoje.getMonth();
+  document.getElementById('trinta-ano').value = hoje.getFullYear();
+  if(trintaPosts.length) renderTrintaGrid();
+}
+
+function buildLegendaPrompt30(dia) {
+  const {servico, tema, tom} = PLANO_30[dia];
+  const sLabel = SERVICO_LABELS[servico];
+  const tLabel = TEMA_LABELS[tema];
+  const tomLabel = TOM_LABELS[tom];
+  const segAlvo = servico==='condominio'?'Síndicos e administradoras':
+    servico==='lojas'?'Donos de lojas e estabelecimentos':
+    servico==='hospitais'?'Hospitais e clínicas':'Empresas em geral';
+  const hBase = '#lcsterceirizacao,#terceirizacaors,#portoalegre,#grandeportoalegre,#sindicos,#condominio,#lojas,#estabelecimentos,#hospitais';
+  const hSeg = SEGMENT_HASHTAGS_30[servico]||'';
+  return `Você é especialista em marketing digital B2B de serviços terceirizados no Brasil.
+Crie uma legenda ELABORADA e PROFISSIONAL para Instagram da empresa "LCS Terceirização" (@lcs_terceirizacao), Porto Alegre RS.
+
+SERVIÇO: ${sLabel} | PÚBLICO: ${segAlvo} | OBJETIVO: ${tLabel} | TOM: ${tomLabel}
+CONTATO: WhatsApp (51) 99889-3033
+
+ESTRUTURA OBRIGATÓRIA:
+1. GANCHO forte na 1ª linha — pergunta impactante ou afirmação surpreendente (máx 80 chars)
+2. DESENVOLVIMENTO — 2 frases sobre diferenciais e benefícios concretos do serviço
+3. CALL-TO-ACTION direto mencionando WhatsApp
+Total máximo: 400 caracteres
+
+REGRAS:
+- Linguagem ${tomLabel.includes('profissional') ? 'formal e confiante' : tomLabel.includes('Amigável') ? 'próxima e calorosa' : tomLabel.includes('rgente') ? 'urgente com senso de oportunidade' : 'educativa e informativa'}
+- Mencione Porto Alegre ou Grande Porto Alegre
+- Máximo 3 emojis estratégicos
+- Fale diretamente com: ${segAlvo}
+- Destaque benefícios concretos de ${sLabel}
+
+Liste hashtags após ---HASHTAGS---. Obrigatórias: ${hBase} | Segmento: ${hSeg}
+Responda APENAS legenda + ---HASHTAGS--- + hashtags separadas por vírgula.`;
+}
+
+async function gerarLegenda30(dia, formato='post') {
+  const res = await fetch('/api/claude', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-5',
+      max_tokens:500,
+      messages:[{role:'user',content:buildLegendaPrompt30(dia)}]
+    })
+  });
+  const data = await res.json();
+  const full = data.content?.[0]?.text || '';
+  let legenda = full, tags = [];
+  if(full.includes('---HASHTAGS---')) {
+    const parts = full.split('---HASHTAGS---');
+    legenda = parts[0].trim();
+    tags = parts[1]?.trim().split(',').map(t=>t.trim()).filter(t=>t.startsWith('#')) || [];
+  }
+  return {legenda, tags};
+}
+
+let _imgSeedCounter = 1000;
+async function gerarImagem30(servico, tema, aspecto='1:1', formato='post') {
+  try {
+    const prompt = buildImagePrompt(servico, tema, '') + (formato !== 'post' ? ' Composição vertical 9:16.' : '');
+    const w = aspecto === '9:16' ? 576 : 1024;
+    const h = aspecto === '9:16' ? 1024 : 1024;
+    _imgSeedCounter += 137;
+    const encodedPrompt = encodeURIComponent(prompt.substring(0, 300));
+    // Direct browser URL - no server needed
+    return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${w}&height=${h}&model=flux&nologo=true&seed=${_imgSeedCounter}`;
+  } catch(e) { return null; }
+}
+
+const FORMATO_MISTO = ['post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories'];
+
+async function carregarImagensProgressivas(total) {
+  // Generate canvas images for all posts - no external API needed
+  for(let i = 0; i < trintaPosts.length; i++) {
+    const p = trintaPosts[i];
+    const canvasUrl = await gerarImagemCanvas(p.servico, p.tema, p.legenda, p.formato||'post', p.dia);
+    trintaPosts[i].imgUrl = canvasUrl;
+    if(i % 3 === 0) renderTrintaGrid(); // update grid every 3 posts
+  }
+  renderTrintaGrid();
+  document.getElementById('trinta-progress-label').textContent = `✅ Tudo pronto! 30 imagens geradas.`;
+}
+
+const LOGO_B64 = 'data:image/png;base64,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';
+
+const PEXELS_QUERIES = {
+  limpeza: ['cleaning+professional+office', 'janitor+cleaning+building', 'cleaning+service+worker', 'professional+cleaner+mop', 'office+cleaning+service'],
+  portaria: ['security+guard+building', 'doorman+entrance+building', 'receptionist+desk+professional', 'building+security+professional', 'security+uniform+professional'],
+  facilities: ['building+maintenance+worker', 'technician+maintenance+building', 'facilities+management+worker', 'maintenance+repair+professional', 'building+engineer+work'],
+  condominio: ['condominium+building+modern', 'apartment+complex+exterior', 'residential+building+clean', 'modern+apartment+building', 'condominium+entrance+lobby'],
+  lojas: ['retail+store+cleaning', 'commercial+cleaning+store', 'shop+floor+cleaning', 'store+cleaning+service', 'commercial+establishment+clean'],
+  hospitais: ['hospital+cleaning+hygiene', 'medical+facility+cleaning', 'healthcare+cleaning+professional', 'hospital+corridor+clean', 'clinic+cleaning+worker'],
+  empresas: ['office+cleaning+corporate', 'corporate+office+clean', 'business+office+professional', 'office+building+maintenance', 'corporate+cleaning+service'],
+  geral: ['professional+cleaning+team', 'cleaning+service+professional', 'janitorial+service+team', 'commercial+cleaning+company', 'cleaning+crew+professional']
+};
+
+async function aplicarLogoCanvas(fotoData, servico, legenda) {
+  return new Promise((resolve) => {
+    const W = 1024, H = 1024;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    const slogans = {
+      limpeza: ['AMBIENTES LIMPOS,', 'RESULTADOS REAIS!'],
+      portaria: ['SEGURANÇA E', 'PROFISSIONALISMO!'],
+      facilities: ['MANUTENÇÃO QUE', 'FAZ A DIFERENÇA!'],
+      condominio: ['SEU CONDOMÍNIO', 'EM BOAS MÃOS!'],
+      lojas: ['SUA LOJA MERECE', 'O MELHOR!'],
+      hospitais: ['HIGIENE QUE', 'SALVA VIDAS!'],
+      empresas: ['SUA EMPRESA', 'MAIS PRODUTIVA!'],
+      geral: ['SOLUÇÕES QUE', 'ELEVAM SEU NEGÓCIO!']
+    };
+    const lines = slogans[servico] || slogans.geral;
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, W, H);
+
+      // Dark overlay bottom half
+      const grad = ctx.createLinearGradient(0, H*0.35, 0, H);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.4, 'rgba(0,0,0,0.55)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.85)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // TOP BAR - red
+      ctx.fillStyle = 'rgba(185,28,28,0.92)';
+      ctx.fillRect(0, 0, W, 80);
+
+      // Company name first (no logo dependency)
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 28px Arial';
+      ctx.textAlign = 'left';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4;
+      ctx.fillText('LCS Terceirização', 96, 38);
+      ctx.font = '18px Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillText('Limpeza  •  Portaria  •  Facilities', 96, 64);
+      ctx.shadowBlur = 0;
+
+      // Logo - draw synchronously if already loaded, else draw now
+      const logoEl = new Image();
+      logoEl.onload = () => {
+        ctx.drawImage(logoEl, 8, 4, 78, 78);
+        // Re-resolve with logo
+        resolve(cv.toDataURL('image/jpeg', 0.92));
+      };
+      logoEl.onerror = () => resolve(cv.toDataURL('image/jpeg', 0.92));
+      logoEl.src = LOGO_B64;
+      return; // wait for logo to load
+
+      // BIG TEXT in the middle - style like the example
+      ctx.textAlign = 'left';
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = 12;
+      
+      // First line - large white
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold 86px Arial`;
+      ctx.fillText(lines[0], 40, H*0.56);
+
+      // Second line - red accent
+      ctx.fillStyle = '#ef4444';
+      ctx.font = `bold 86px Arial`;
+      ctx.fillText(lines[1], 40, H*0.56 + 96);
+      ctx.shadowBlur = 0;
+
+      // Tagline below
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.font = '22px Arial';
+      ctx.fillText('Qualidade • Confiança • Profissionalismo', 40, H*0.56 + 148);
+
+      // BOTTOM BAR
+      ctx.fillStyle = 'rgba(185,28,28,0.92)';
+      ctx.fillRect(0, H - 72, W, 72);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 22px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('📱 (51) 99889-3033', 20, H - 38);
+      ctx.textAlign = 'right';
+      ctx.font = 'bold 20px Arial';
+      ctx.fillText('@lcs_terceirizacao', W - 20, H - 38);
+      ctx.textAlign = 'center';
+      ctx.font = '15px Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.fillText('lcsterceirizacaors.com.br', W/2, H - 12);
+
+      // resolve is called after logo loads (see above)
+    };
+    img.onerror = () => resolve(fotoData);
+    img.src = fotoData;
+  });
+}
+
+async function buscarFotoIA(servico, dia, formato) {
+  try {
+    const res = await fetch('/api/pexels', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ servico, dia, formato: formato||'post' })
+    });
+    if(!res.ok) return null;
+    const data = await res.json();
+    return data.imageData || null;
+  } catch(e) { return null; }
+}
+
+async function gerarImagemCanvas(servico, tema, legenda, formato, dia) {
+  return new Promise(async (resolve) => {
+    const isV = formato === 'stories' || formato === 'reels';
+    const W = isV ? 576 : 1024, H = isV ? 1024 : 1024;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    const sLabels = {
+      limpeza:'Limpeza Profissional', portaria:'Portaria & Recepcao',
+      facilities:'Facilities & Manutencao', condominio:'Condominios',
+      lojas:'Lojas & Comercio', hospitais:'Hospitais & Clinicas',
+      empresas:'Empresas', geral:'LCS Terceirizacao'
+    };
+
+    const drawCanvas = (bgImg) => {
+      if(bgImg) {
+        ctx.drawImage(bgImg, 0, 0, W, H);
+        const grad = ctx.createLinearGradient(0, 0, 0, H);
+        grad.addColorStop(0, 'rgba(0,0,0,0.55)');
+        grad.addColorStop(0.45, 'rgba(0,0,0,0.2)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.88)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0,0,W,H);
+      } else {
+        const bg = ctx.createLinearGradient(0,0,W,H);
+        bg.addColorStop(0,'#1e3a8a'); bg.addColorStop(1,'#dc2626');
+        ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+      }
+
+      // Top red bar
+      ctx.fillStyle = 'rgba(185,28,28,0.92)';
+      ctx.fillRect(0, 0, W, Math.round(H*0.09));
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(W*0.034)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText(sLabels[servico] || 'LCS Terceirizacao', W/2, Math.round(H*0.058));
+
+      // Logo
+      try {
+        const logoImg = new Image();
+        logoImg.src = LOGO_B64;
+        const ls = Math.round(W*0.1);
+        ctx.drawImage(logoImg, W-ls-10, 6, ls, ls);
+      } catch(e) {}
+
+      // Day badge
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.beginPath();
+      ctx.arc(Math.round(W*0.08), Math.round(H*0.19), Math.round(W*0.06), 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(W*0.02)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText('DIA', Math.round(W*0.08), Math.round(H*0.172));
+      ctx.font = `bold ${Math.round(W*0.042)}px Arial`;
+      ctx.fillText(String(dia||1), Math.round(W*0.08), Math.round(H*0.21));
+
+      // Headline
+      const raw = (legenda||'').replace(/[*#✅📋🏢🧹🔧🏗️🛍️🏥🏭💼📞⭐🌟💡📱🏆]/g,'').trim();
+      const headline = raw.split('.')[0].split('!')[0].trim().substring(0,60);
+      ctx.textAlign = 'left';
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = '#ffffff';
+      const fs = Math.round(W*0.046);
+      ctx.font = `bold ${fs}px Arial`;
+      const words = headline.split(' ');
+      let line = '', y = Math.round(H*0.5), lh = Math.round(fs*1.3), maxW = W*0.84;
+      let lines = [];
+      for(let n=0;n<words.length;n++){
+        const tl = line+words[n]+' ';
+        if(ctx.measureText(tl).width > maxW && n>0){lines.push(line.trim());line=words[n]+' ';}
+        else{line=tl;}
+        if(lines.length>=3) break;
+      }
+      if(line.trim()) lines.push(line.trim());
+      lines.slice(0,3).forEach((l,i) => ctx.fillText(l, W*0.06, y + i*lh));
+      ctx.shadowBlur = 0;
+
+      // Slogan
+      ctx.fillStyle = 'rgba(255,255,255,0.82)';
+      ctx.font = `${Math.round(W*0.022)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 6;
+      ctx.fillText('Qualidade  Confianca  Profissionalismo', W/2, Math.round(H*0.8));
+      ctx.shadowBlur = 0;
+
+      // Bottom bar
+      ctx.fillStyle = 'rgba(185,28,28,0.92)';
+      ctx.fillRect(0, Math.round(H*0.88), W, Math.round(H*0.12));
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(W*0.026)}px Arial`;
+      ctx.textAlign = 'left';
+      ctx.fillText('(51) 99889-3033', W*0.04, Math.round(H*0.933));
+      ctx.textAlign = 'right';
+      ctx.fillText('@lcs_terceirizacao', W*0.96, Math.round(H*0.933));
+      ctx.textAlign = 'center';
+      ctx.font = `${Math.round(W*0.019)}px Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.fillText('lcsterceirizacaors.com.br', W/2, Math.round(H*0.973));
+
+      resolve(cv.toDataURL('image/jpeg', 0.92));
+    };
+
+    // Fetch real photo via DALL-E
+    const pexelsData = await buscarFotoIA(servico, dia, formato);
+    if(pexelsData) {
+      // Apply logo overlay
+      const withLogo = await aplicarLogoCanvas(pexelsData, servico, legenda);
+      resolve(withLogo);
+    } else {
+      // Fallback colored canvas
+      drawCanvas(null);
+    }
+  });
+}
+
+
+let previewImageUrl = null;
+
+function previewImagem() {
+  const box = document.getElementById('preview-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+async function gerarPreview() {
+  const servico = document.getElementById('preview-servico').value;
+  const formato = document.getElementById('trinta-formato').value === 'misto' ? 'post' : 
+                  document.getElementById('trinta-formato').value;
+  const btn = document.getElementById('btn-gerar-preview');
+  const status = document.getElementById('preview-status');
+  const imgBox = document.getElementById('preview-img-box');
+  const btnBaixar = document.getElementById('btn-baixar-preview');
+
+  btn.innerHTML = '<span class="spinner"></span> Gerando...';
+  btn.disabled = true;
+  status.textContent = 'Gerando imagem com DALL-E 3... (~20 segundos)';
+  btnBaixar.style.display = 'none';
+  imgBox.innerHTML = '<span class="spinner" style="width:28px;height:28px;border-width:3px;"></span>';
+
+  try {
+    const fotoData = await buscarFotoIA(servico, Math.floor(Math.random()*5), formato);
+    if(fotoData) {
+      // Apply logo overlay via canvas
+      const canvasUrl = await aplicarLogoCanvas(fotoData, servico, '');
+      previewImageUrl = canvasUrl;
+      imgBox.innerHTML = `<img src="${canvasUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+      btnBaixar.style.display = 'inline-flex';
+      status.textContent = '✅ Preview gerado com logo LCS!';
+    } else {
+      throw new Error('Erro ao gerar imagem');
+    }
+  } catch(e) {
+    imgBox.innerHTML = '<span style="font-size:24px;">⚠️</span>';
+    status.textContent = '❌ Erro: ' + e.message;
+  }
+
+  btn.innerHTML = '🎨 Gerar Preview';
+  btn.disabled = false;
+}
+
+function baixarPreview() {
+  if(!previewImageUrl) return;
+  const a = document.createElement('a');
+  a.href = previewImageUrl;
+  a.download = 'lcs_preview.png';
+  a.click();
+}
+
+async function gerarTrintaDias() {
+  const btn = document.getElementById('btn-30-txt');
+  btn.innerHTML = '<span class="spinner"></span> Gerando...';
+  document.getElementById('btn-buffer').style.display = 'none';
+  trintaPosts = [];
+
+  const wrap = document.getElementById('trinta-progress-bar-wrap');
+  const bar  = document.getElementById('trinta-progress-bar');
+  const lbl  = document.getElementById('trinta-progress-label');
+  const pct  = document.getElementById('trinta-progress-pct');
+  wrap.style.display = 'block';
+
+  const mes = parseInt(document.getElementById('trinta-mes').value);
+  const ano = parseInt(document.getElementById('trinta-ano').value);
+  const totalDias = new Date(ano, mes+1, 0).getDate();
+  const dias = Math.min(30, totalDias);
+
+  for(let i = 0; i < dias; i++) {
+    const diaNum = i+1;
+    const dateObj = new Date(ano, mes, diaNum);
+    const dateISO = `${ano}-${String(mes+1).padStart(2,'0')}-${String(diaNum).padStart(2,'0')}`;
+    const dateLabel = dateObj.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
+
+    lbl.textContent = `Gerando dia ${diaNum}/${dias} — legenda...`;
+    pct.textContent = `${Math.round((i/dias)*100)}%`;
+    bar.style.width = `${Math.round((i/dias)*100)}%`;
+
+    try {
+      const {servico, tema} = PLANO_30[i];
+      const tFormatoSel = document.getElementById('trinta-formato').value;
+      const tFormato = tFormatoSel === 'misto' ? FORMATO_MISTO[i % FORMATO_MISTO.length] : tFormatoSel;
+      const {legenda, tags} = await gerarLegenda30(i, tFormato);
+
+      lbl.textContent = `Gerando dia ${diaNum}/${dias} — imagem...`;
+      const aspecto = tFormato === 'post' ? '1:1' : '9:16';
+      // Add extra delay to avoid rate limiting on image API
+      await new Promise(r => setTimeout(r, 1500));
+      const imgUrl = await gerarImagem30(servico, tema, aspecto, tFormato);
+
+      trintaPosts.push({
+        dia: diaNum, dateISO, dateLabel,
+        servico, tema, formato: tFormato,
+        legenda, tags,
+        imgUrl: null, // images load after all text generated
+        imgPromptUrl: imgUrl, // store URL for later loading
+        hora: '18:00',
+        bufferEnviado: false
+      });
+    } catch(e) {
+      trintaPosts.push({
+        dia: diaNum, dateISO, dateLabel,
+        servico: PLANO_30[i].servico, tema: PLANO_30[i].tema,
+        legenda: '⚠️ Erro ao gerar legenda para este dia.',
+        tags: [], imgUrl: null,
+        hora: '18:00', bufferEnviado: false
+      });
+    }
+
+    renderTrintaGrid();
+    await new Promise(r => setTimeout(r, 3500)); // rate limit between posts
+  }
+
+  bar.style.width = '100%';
+  pct.textContent = '100%';
+  lbl.textContent = `✅ ${dias} posts gerados! Carregando imagens...`;
+  btn.innerHTML = '🔄 Regerar 30 Posts';
+  document.getElementById('btn-buffer').style.display = 'inline-flex';
+  showToast(`✅ ${dias} legendas geradas! Imagens carregando...`);
+  updateStats();
+
+  // Load images progressively after all text is ready
+  carregarImagensProgressivas(dias);
+}
+
+function renderTrintaGrid() {
+  const grid = document.getElementById('trinta-grid');
+  grid.innerHTML = trintaPosts.map((p,i) => `
+    <div class="card" style="border-color:${p.bufferEnviado?'rgba(16,185,129,.4)':'var(--border)'};position:relative;">
+      ${p.bufferEnviado?'<div style="position:absolute;top:10px;right:10px;background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;">✅ Buffer</div>':''}
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="width:72px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+          ${p.imgUrl
+            ? `<img src="${p.imgUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex'" /><span style="display:none;font-size:24px;align-items:center;justify-content:center;width:100%;height:100%">${getEmoji(p.servico)}</span>`
+            : `<span style="font-size:24px;">${getEmoji(p.servico)}</span>`}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--white);">Dia ${p.dia}</span>
+            <span style="font-size:11px;color:var(--muted);">${p.dateLabel} · ${p.hora}</span>
+            <span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(37,99,235,.15);color:var(--accent2);">${p.formato==='reels'?'🎬 Reels':p.formato==='stories'?'📱 Stories':'🖼️ Post'}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);line-height:1.6;margin-bottom:8px;">${p.legenda.substring(0,120)}${p.legenda.length>120?'...':''}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${p.tags.slice(0,4).map(t=>`<span class="tag" style="font-size:10px;">${t}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" style="font-size:11px;" onclick="editarPost30(${i})">✏️ Editar</button>
+        <button class="btn btn-secondary btn-sm" style="font-size:11px;" onclick="copiarPost30(${i})">📋 Copiar</button>
+        ${p.imgUrl?`<button class="btn btn-secondary btn-sm" style="font-size:11px;" onclick="baixarImg30(${i})">⬇️ Imagem</button>`:''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function editarPost30(i) {
+  const p = trintaPosts[i];
+  const nova = prompt('Editar legenda:', p.legenda);
+  if(nova !== null) { trintaPosts[i].legenda = nova; renderTrintaGrid(); }
+}
+
+function copiarPost30(i) {
+  const p = trintaPosts[i];
+  navigator.clipboard.writeText(`${p.legenda}\n\n${p.tags.join(' ')}`);
+  showToast('📋 Post copiado!');
+}
+
+async function baixarImg30(i) {
+  const p = trintaPosts[i];
+  if(!p.imgUrl) return;
+  const canvasUrl = await adicionarTextoImagem(p.imgUrl, p.servico, p.legenda, p.formato||'post');
+  const a = document.createElement('a');
+  a.href = canvasUrl;
+  a.download = `lcs_dia${p.dia}_${p.dateISO}.jpg`;
+  a.click();
+  showToast('⬇️ Imagem com texto baixada!');
+}
+
+// BUFFER INTEGRATION
+async function enviarBufferTodos() {
+  const key = document.getElementById('buffer-key').value.trim();
+  if(!key) { showToast('⚠️ Cole a chave API do Buffer primeiro!'); return; }
+  if(!trintaPosts.length) { showToast('⚠️ Gere os posts primeiro!'); return; }
+
+  const btn = document.getElementById('btn-buffer');
+  btn.innerHTML = '<span class="spinner"></span> Enviando...';
+  btn.disabled = true;
+
+  // First get channel ID
+  let channelId = null;
+  try {
+    const chRes = await fetch('/api/buffer', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({query:`{ organizations { channels { id name serviceType } } }`, key})
+    });
+    const chRaw = await chRes.text();
+    console.log('Buffer raw response:', chRaw);
+    let chData;
+    try { chData = JSON.parse(chRaw); } catch(e) { console.log('Parse error:', e); }
+    const channels = chData?.data?.organizations?.[0]?.channels || [];
+    console.log('Buffer channels found:', channels.length, JSON.stringify(channels));
+    
+    // Try to find Instagram channel by multiple methods
+    const igChannel = channels.find(c=>
+      c.serviceType === 'instagram' ||
+      c.serviceType === 'instagram_business' ||
+      c.name?.toLowerCase().includes('lcs') ||
+      c.name?.toLowerCase().includes('terceirizacao') ||
+      c.name?.toLowerCase().includes('instagram')
+    );
+    channelId = igChannel?.id || channels[0]?.id;
+    
+    if(!channelId) {
+      const channelNames = channels.map(c=>`${c.name} (${c.serviceType})`).join(', ');
+      showToast(`⚠️ Canais encontrados: ${channelNames || 'nenhum'}. Conecte o Instagram no Buffer.`);
+      btn.innerHTML = '📤 Enviar Todos para o Buffer';
+      btn.disabled = false;
+      return;
+    }
+    console.log('Using channel:', channelId, igChannel?.name);
+  } catch(e) {
+    showToast('❌ Erro ao buscar canal do Buffer. Verifique a chave.');
+    btn.innerHTML = '📤 Enviar Todos para o Buffer';
+    btn.disabled = false;
+    return;
+  }
+
+  if(!channelId) {
+    showToast('❌ Canal Instagram não encontrado no Buffer.');
+    btn.innerHTML = '📤 Enviar Todos para o Buffer';
+    btn.disabled = false;
+    return;
+  }
+
+  let enviados = 0, erros = 0;
+  for(let i = 0; i < trintaPosts.length; i++) {
+    const p = trintaPosts[i];
+    if(p.bufferEnviado) continue;
+
+    const scheduledAt = `${p.dateISO}T18:00:00-03:00`;
+    const texto = `${p.legenda}\n\n${p.tags.join(' ')}`;
+
+    try {
+      const mutation = `
+        mutation CreatePost($input: CreatePostInput!) {
+          createPost(input: $input) { post { id status } }
+        }`;
+      const variables = {
+        input: {
+          channelId,
+          content: { text: texto },
+          scheduling: { scheduledAt }
+        }
+      };
+      const res = await fetch('/api/buffer', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({query: mutation, variables})
+      });
+      const data = await res.json();
+      if(data?.data?.createPost?.post) {
+        trintaPosts[i].bufferEnviado = true;
+        enviados++;
+      } else { erros++; }
+    } catch(e) { erros++; }
+
+    renderTrintaGrid();
+    document.getElementById('trinta-progresso').textContent = `Enviados: ${enviados}/${trintaPosts.length}`;
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  btn.innerHTML = '📤 Enviar Todos para o Buffer';
+  btn.disabled = false;
+  showToast(`✅ ${enviados} posts enviados para o Buffer! ${erros>0?`⚠️ ${erros} erros.`:''}`);
+}
+
+
+// INIT
+updateStats();
+renderCalendario();
+</script>
+</body>
+</html>
