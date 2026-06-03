@@ -1085,27 +1085,25 @@ async function gerarImagem() {
   try {
     const servicoVal = document.getElementById('servico').value;
     const formatoVal = document.getElementById('formato').value;
-    const aspecto = window._imgAspecto || '1:1';
-    const w = aspecto === '9:16' ? 576 : 1024;
-    const h = aspecto === '9:16' ? 1024 : 1024;
-    const seed = Math.floor(Math.random()*99999);
-    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptCustom.substring(0,300))}?width=${w}&height=${h}&model=flux&nologo=true&seed=${seed}`;
 
-    box.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;flex-direction:column;gap:8px;"><span class="spinner" style="width:28px;height:28px;border-width:3px;"></span><span style="font-size:12px;color:var(--muted)">Gerando imagem...</span></div>`;
+    box.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;flex-direction:column;gap:8px;"><span class="spinner" style="width:28px;height:28px;border-width:3px;"></span><span style="font-size:12px;color:var(--muted)">Gerando imagem com IA...</span></div>`;
 
-    const tempImg = new Image();
-    tempImg.crossOrigin = 'anonymous';
-    tempImg.onload = async () => {
-      const canvasUrl = await adicionarTextoImagem(imgUrl, servicoVal, ultimaLegenda, formatoVal);
+    // Use DALL-E via server
+    const fotoData = await buscarFotoIA(servicoVal, Math.floor(Math.random()*5), formatoVal);
+    if(fotoData) {
+      const canvasUrl = await aplicarLogoCanvas(fotoData, servicoVal, ultimaLegenda);
       ultimaImagemUrl = canvasUrl;
       box.innerHTML = `<img src="${canvasUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
       document.getElementById('btn-baixar-img').style.display = 'inline-flex';
-      showToast('🎨 Imagem com texto gerada!');
-    };
-    tempImg.onerror = () => {
-      box.innerHTML = `<span style="font-size:28px;">⚠️</span><span style="font-size:12px;color:var(--muted);margin-top:8px;">Erro ao carregar.<br>Tente novamente.</span>`;
-    };
-    tempImg.src = imgUrl;
+      showToast('🎨 Imagem gerada!');
+    } else {
+      // Fallback canvas
+      const canvasUrl = await gerarImagemCanvas(servicoVal, 'credibilidade', ultimaLegenda, formatoVal, 1);
+      ultimaImagemUrl = canvasUrl;
+      box.innerHTML = `<img src="${canvasUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+      document.getElementById('btn-baixar-img').style.display = 'inline-flex';
+      showToast('🎨 Imagem gerada!');
+    }
   } catch(e) {
     console.error(e);
     box.innerHTML = `<span style="font-size:28px;">⚠️</span><span style="font-size:12px;color:var(--muted);margin-top:8px;">Erro ao gerar imagem.<br>Tente novamente.</span>`;
@@ -1239,7 +1237,7 @@ async function enviarBufferUnico() {
     const chRes = await fetch('/api/buffer', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({query:`{ organizations { channels { id name service } } }`})
+      body: JSON.stringify({query:`{ organizations { id channels { id name } } }`})
     });
     console.log('Buffer response status:', chRes.status);
     const chData = await chRes.json();
@@ -1931,11 +1929,7 @@ async function enviarBufferTodos() {
     console.log('All channels:', JSON.stringify(channels));
     
     // Find Instagram - accept any channel type that includes instagram
-    const igChannel = channels.find(c=>
-      (c.service||'').toLowerCase().includes('instagram') ||
-      (c.name||'').toLowerCase().includes('lcs') ||
-      (c.name||'').toLowerCase().includes('terceirizacao')
-    ) || channels[0]; // fallback to first channel // fallback to first channel
+    const igChannel = channels[0]; // use first channel (Instagram) // fallback to first channel
     
     channelId = igChannel?.id;
     
