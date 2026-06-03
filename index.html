@@ -1084,17 +1084,74 @@ function mudaMes(dir) {
 
 // BANCO DE TEMAS
 function renderTemas() {
-  const temasSalvosExtra = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
-  const temas = [...temasSalvosExtra, ...(window.TEMAS_BASE || [])]
+  const bancoDB = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
+  const fotosReais = bancoDB.filter(t => t.tipo === 'foto_real');
+  const temasBase = bancoDB.filter(t => t.tipo !== 'foto_real');
+  const todosBase = [...temasBase, ...(window.TEMAS_BASE || [])];
 
-  document.getElementById('banco-temas').innerHTML = temas.map(t=>`
-    <div class="card">
-      <h3><span>${t.icon}</span> ${t.titulo}</h3>
-      <p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px;">${t.desc}</p>
-      <div class="tags-row" style="margin-bottom:12px;">${t.sugestoes.map(s=>`<span class="tag">${s}</span>`).join('')}</div>
-      <button class="btn btn-secondary btn-sm btn-full" onclick="usarTema('${t.titulo}')">Usar este tema</button>
-    </div>
-  `).join('');
+  let html = '';
+
+  // Show user photos first
+  if(fotosReais.length > 0) {
+    html += `<div style="grid-column:1/-1;margin-bottom:8px;">
+      <h3 style="font-size:14px;margin:0 0 12px;">📸 Minhas Fotos (${fotosReais.length})</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        ${fotosReais.map(f => `
+          <div class="card" style="padding:10px;">
+            <img src="${f.imgSrc}" style="width:100%;border-radius:8px;margin-bottom:8px;aspect-ratio:1;object-fit:cover;">
+            <p style="font-size:11px;font-weight:500;color:var(--text);margin:0 0 2px;">${f.titulo||''}</p>
+            <p style="font-size:10px;color:var(--muted);margin:0 0 6px;">${f.servico||'geral'}</p>
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-primary btn-sm" style="flex:1;font-size:10px;" onclick="usarFotoTema('${f.id}')">✨ Usar</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:10px;" onclick="deletarDobancoTemas('${f.id}')">🗑️</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Show base themes
+  if(todosBase.length > 0) {
+    html += `<div style="grid-column:1/-1;margin-bottom:8px;margin-top:${fotosReais.length>0?'16px':'0'};">
+      <h3 style="font-size:14px;margin:0 0 12px;">🎯 Temas de Conteúdo</h3>
+    </div>`;
+    html += todosBase.map(t=>`
+      <div class="card">
+        <h3><span>${t.icon||'📌'}</span> ${t.titulo}</h3>
+        <p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px;">${t.desc||t.subtitulo||''}</p>
+        ${t.sugestoes ? `<div class="tags-row" style="margin-bottom:12px;">${t.sugestoes.map(s=>`<span class="tag">${s}</span>`).join('')}</div>` : ''}
+        <button class="btn btn-secondary btn-sm btn-full" onclick="usarTema('${t.titulo}')">Usar este tema</button>
+      </div>
+    `).join('');
+  }
+
+  if(!fotosReais.length && !todosBase.length) {
+    html = '<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:40px;">Nenhum tema salvo ainda. Adicione fotos no Editor!</p>';
+  }
+
+  document.getElementById('banco-temas').innerHTML = html;
+}
+
+function usarFotoTema(id) {
+  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
+  const foto = temas.find(t => String(t.id) === String(id));
+  if(!foto) return;
+  // Switch to generator and pre-select service
+  switchTab('gerador', document.querySelector('.tab'));
+  if(foto.servico) {
+    const sel = document.getElementById('servico');
+    if(sel) sel.value = foto.servico;
+  }
+  showToast(`✅ Foto de ${foto.servico} selecionada — gere a legenda!`);
+}
+
+function deletarDobancoTemas(id) {
+  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
+  const novosTemas = temas.filter(t => String(t.id) !== String(id));
+  localStorage.setItem('lcs_banco_temas', JSON.stringify(novosTemas));
+  showToast('🗑️ Foto removida do banco!');
+  renderTemas();
 }
 
 function usarTema(nome) {
