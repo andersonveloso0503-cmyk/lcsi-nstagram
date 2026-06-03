@@ -695,7 +695,10 @@
         </div>
       </div>
 
-      <button class="btn btn-primary btn-full" onclick="aplicarEstiloTodas()">✨ Aplicar Estilo em Todas as Fotos</button>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="aplicarEstiloTodas()">✨ Aplicar Estilo em Todas</button>
+        <button class="btn btn-secondary" onclick="fotosEditor=[];document.getElementById('editor-grid').innerHTML='';document.getElementById('upload-area').querySelector('p').textContent='Arraste fotos aqui ou clique para selecionar';showToast('🗑️ Fotos limpas!')">🗑️ Limpar Tudo</button>
+      </div>
     </div>
 
     <!-- Photo Grid -->
@@ -2107,48 +2110,101 @@ function initEditor() {
 }
 
 function carregarFotos(files) {
-  fotosEditor = [];
+  // Accumulate photos instead of replacing
   const promises = Array.from(files).map(f => new Promise(resolve => {
     const reader = new FileReader();
-    reader.onload = e => { fotosEditor.push({ src: e.target.result, nome: f.name }); resolve(); };
+    reader.onload = e => { 
+      fotosEditor.push({ src: e.target.result, nome: f.name });
+      resolve();
+    };
     reader.readAsDataURL(f);
   }));
   Promise.all(promises).then(() => {
-    showToast(`✅ ${fotosEditor.length} foto(s) carregada(s)!`);
+    showToast(`✅ ${fotosEditor.length} foto(s) no total!`);
+    // Update upload area text
+    document.getElementById('upload-area').querySelector('p').textContent = 
+      `${fotosEditor.length} foto(s) carregada(s) — arraste mais para adicionar`;
     aplicarEstiloTodas();
   });
+}
+
+async function analisarFotoIA(base64Src) {
+  try {
+    const base64 = base64Src.split(',')[1];
+    const mediaType = base64Src.split(';')[0].split(':')[1] || 'image/jpeg';
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+            { type: 'text', text: `Analise esta foto de serviço da empresa LCS Terceirização (limpeza, portaria, facilities).
+Responda SOMENTE em JSON assim: {"titulo":"TEXTO EM MAIUSCULO ATÉ 4 PALAVRAS","subtitulo":"Frase impactante até 5 palavras!","servico":"limpeza|portaria|facilities|geral"}
+Exemplos: {"titulo":"AMBIENTES SEMPRE LIMPOS","subtitulo":"Resultado que fala por si!","servico":"limpeza"}` }
+          ]
+        }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    const jsonMatch = text.match(/\{[^}]+\}/);
+    if(jsonMatch) return JSON.parse(jsonMatch[0]);
+  } catch(e) {}
+  return { titulo: 'QUALIDADE LCS', subtitulo: 'Profissionalismo garantido!', servico: 'geral' };
 }
 
 async function aplicarEstiloTodas() {
   if(!fotosEditor.length) { showToast('⚠️ Carregue fotos primeiro!'); return; }
   const grid = document.getElementById('editor-grid');
-  grid.innerHTML = '<p style="color:var(--muted);text-align:center;grid-column:1/-1;">Processando...</p>';
+  const useAI = document.getElementById('editor-titulo').value === '' || document.getElementById('editor-titulo').value === 'Limpeza Profissional';
+  
+  grid.innerHTML = `<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:20px;">
+    <span class="spinner" style="display:inline-block;width:20px;height:20px;border-width:2px;vertical-align:middle;margin-right:8px;"></span>
+    Analisando ${fotosEditor.length} foto(s) com IA...</p>`;
   
   const resultados = [];
   for(let i = 0; i < fotosEditor.length; i++) {
-    const url = await aplicarEstiloFoto(fotosEditor[i].src, fotosEditor[i].nome);
-    resultados.push({ url, nome: fotosEditor[i].nome, idx: i });
+    // Update progress
+    grid.querySelector('p').textContent = `Processando foto ${i+1}/${fotosEditor.length}...`;
+    
+    // Analyze with AI
+    const analise = await analisarFotoIA(fotosEditor[i].src);
+    
+    // Apply style with AI-generated text
+    const url = await aplicarEstiloFoto(
+      fotosEditor[i].src, 
+      fotosEditor[i].nome,
+      analise.titulo,
+      analise.subtitulo
+    );
+    resultados.push({ url, nome: fotosEditor[i].nome, idx: i, analise });
+    
+    // Show as they complete
+    grid.innerHTML = resultados.map(r => `
+      <div class="card" style="padding:12px;">
+        <img src="${r.url}" style="width:100%;border-radius:8px;margin-bottom:8px;">
+        <p style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:2px;">${r.analise.titulo}</p>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:8px;">${r.analise.subtitulo}</p>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-green btn-sm" style="flex:1;font-size:11px;" onclick="baixarFotoEditada('${r.url}','lcs_foto${r.idx+1}.jpg')">⬇️ Baixar</button>
+          <button class="btn btn-primary btn-sm" style="flex:1;font-size:11px;" onclick="enviarFotoBuffer('${r.url}')">📤 Buffer</button>
+        </div>
+      </div>
+    `).join('') + (i < fotosEditor.length-1 ? `<div class="card" style="padding:12px;display:flex;align-items:center;justify-content:center;min-height:200px;"><span class="spinner" style="width:24px;height:24px;border-width:3px;"></span></div>` : '');
   }
   
-  grid.innerHTML = resultados.map(r => `
-    <div class="card" style="padding:12px;">
-      <img src="${r.url}" style="width:100%;border-radius:8px;margin-bottom:10px;">
-      <p style="font-size:11px;color:var(--muted);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.nome}</p>
-      <div style="display:flex;gap:6px;">
-        <button class="btn btn-green btn-sm" style="flex:1;font-size:11px;" onclick="baixarFotoEditada('${r.url}','lcs_${r.idx+1}.jpg')">⬇️ Baixar</button>
-        <button class="btn btn-primary btn-sm" style="flex:1;font-size:11px;" onclick="enviarFotoBuffer('${r.url}')">📤 Buffer</button>
-      </div>
-    </div>
-  `).join('');
-  
-  showToast(`🎨 ${resultados.length} foto(s) estilizadas!`);
+  showToast(`🎨 ${resultados.length} foto(s) estilizadas com IA!`);
 }
 
-async function aplicarEstiloFoto(fotoSrc, nome) {
+async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverride) {
   return new Promise(resolve => {
     const estilo = document.getElementById('estilo-visual').value;
-    const titulo = document.getElementById('editor-titulo').value || 'LCS Terceirização';
-    const subtitulo = document.getElementById('editor-subtitulo').value || 'Qualidade garantida!';
+    const titulo = tituloOverride || document.getElementById('editor-titulo').value || 'LCS Terceirização';
+    const subtitulo = subtituloOverride || document.getElementById('editor-subtitulo').value || 'Qualidade garantida!';
     const formato = document.getElementById('editor-formato').value;
     const opacity = parseInt(document.getElementById('editor-opacity').value) / 100;
     const E = ESTILOS[estilo] || ESTILOS.lcs_red;
