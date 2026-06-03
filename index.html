@@ -1681,6 +1681,22 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
 }
 
 async function buscarFotoIA(servico, dia, formato) {
+  // First try saved user photos
+  const savedPhotos = carregarFotosSalvas();
+  if(savedPhotos.length > 0) {
+    const photo = savedPhotos[dia % savedPhotos.length];
+    if(photo?.blobUrl) {
+      // Fetch from blob URL
+      try {
+        const res = await fetch(photo.blobUrl);
+        const buf = await res.arrayBuffer();
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        return `data:image/jpeg;base64,${b64}`;
+      } catch(e) {}
+    }
+  }
+  
+  // Fallback to Pexels
   try {
     const res = await fetch('/api/pexels', {
       method: 'POST',
@@ -2107,23 +2123,41 @@ function initEditor() {
     document.getElementById('opacity-label').textContent = this.value + '%';
     if(fotosEditor.length) aplicarEstiloTodas();
   };
+  
+  // Load and show saved photos count
+  const saved = carregarFotosSalvas();
+  if(saved.length > 0) {
+    showToast(`📸 ${saved.length} foto(s) salvas disponíveis para os 30 dias!`);
+    document.getElementById('upload-area').querySelector('p').textContent = 
+      `${saved.length} foto(s) salvas — arraste mais para adicionar`;
+  }
+}
+
+async function salvarFotoBlob(base64Src, nome) {
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ imageData: base64Src, filename: 'lcs-foto-' + Date.now() + '.jpg' })
+    });
+    const data = await res.json();
+    return data.url || null;
+  } catch(e) { return null; }
 }
 
 function carregarFotos(files) {
-  // Accumulate photos instead of replacing
   const promises = Array.from(files).map(f => new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = e => { 
-      fotosEditor.push({ src: e.target.result, nome: f.name });
+      fotosEditor.push({ src: e.target.result, nome: f.name, blobUrl: null });
       resolve();
     };
     reader.readAsDataURL(f);
   }));
   Promise.all(promises).then(() => {
-    showToast(`✅ ${fotosEditor.length} foto(s) no total!`);
-    // Update upload area text
+    showToast(`✅ ${fotosEditor.length} foto(s) carregada(s)!`);
     document.getElementById('upload-area').querySelector('p').textContent = 
-      `${fotosEditor.length} foto(s) carregada(s) — arraste mais para adicionar`;
+      `${fotosEditor.length} foto(s) — arraste mais para adicionar`;
     aplicarEstiloTodas();
   });
 }
@@ -2198,6 +2232,47 @@ async function aplicarEstiloTodas() {
   }
   
   showToast(`🎨 ${resultados.length} foto(s) estilizadas com IA!`);
+  
+  // Save to Vercel Blob for permanent storage
+  showToast('💾 Salvando no servidor...');
+  for(let i = 0; i < resultados.length; i++) {
+    const blobUrl = await salvarFotoBlob(resultados[i].url, resultados[i].nome);
+    if(blobUrl) {
+      fotosEditor[resultados[i].idx].blobUrl = blobUrl;
+      fotosEditor[resultados[i].idx].blobSrc = resultados[i].url;
+      fotosEditor[resultados[i].idx].titulo = resultados[i].analise.titulo;
+      fotosEditor[resultados[i].idx].subtitulo = resultados[i].analise.subtitulo;
+    }
+  }
+  
+  // Save to localStorage for persistence
+  const savedPhotos = fotosEditor.filter(f => f.blobUrl).map(f => ({
+    blobUrl: f.blobUrl,
+    nome: f.nome,
+    titulo: f.titulo,
+    subtitulo: f.subtitulo
+  }));
+  localStorage.setItem('lcs_fotos', JSON.stringify(savedPhotos));
+  showToast(`✅ ${savedPhotos.length} foto(s) salvas permanentemente!`);
+  
+  // Update grid with saved indicator
+  renderEditorGrid(resultados);
+}
+
+function renderEditorGrid(resultados) {
+  const grid = document.getElementById('editor-grid');
+  grid.innerHTML = resultados.map(r => `
+    <div class="card" style="padding:12px;border-color:${fotosEditor[r.idx]?.blobUrl ? 'rgba(16,185,129,.4)' : 'var(--border)'};">
+      ${fotosEditor[r.idx]?.blobUrl ? '<div style="font-size:10px;color:var(--green);margin-bottom:6px;">✅ Salva</div>' : ''}
+      <img src="${r.url}" style="width:100%;border-radius:8px;margin-bottom:8px;">
+      <p style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:2px;">${r.analise.titulo}</p>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:8px;">${r.analise.subtitulo}</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-green btn-sm" style="flex:1;font-size:11px;" onclick="baixarFotoEditada('${r.url}','lcs_foto${r.idx+1}.jpg')">⬇️ Baixar</button>
+        <button class="btn btn-secondary btn-sm" style="flex:1;font-size:11px;" onclick="deletarFotoSalva(${r.idx})">🗑️</button>
+      </div>
+    </div>
+  `).join('');
 }
 
 async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverride) {
@@ -2293,6 +2368,21 @@ async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverrid
     };
     img.src = fotoSrc;
   });
+}
+
+function carregarFotosSalvas() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('lcs_fotos') || '[]');
+    return saved;
+  } catch(e) { return []; }
+}
+
+function deletarFotoSalva(idx) {
+  fotosEditor.splice(idx, 1);
+  const saved = carregarFotosSalvas().filter((_, i) => i !== idx);
+  localStorage.setItem('lcs_fotos', JSON.stringify(saved));
+  showToast('🗑️ Foto removida!');
+  aplicarEstiloTodas();
 }
 
 function baixarFotoEditada(url, nome) {
