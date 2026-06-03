@@ -1237,11 +1237,11 @@ async function enviarBufferUnico() {
     const chRes = await fetch('/api/buffer', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({query:`{ organizations { id channels { id name } } }`})
+      body: JSON.stringify({query:`{ channels { id name } }`})
     });
     console.log('Buffer response status:', chRes.status);
     const chData = await chRes.json();
-    const channels = chData?.data?.organizations?.[0]?.channels || [];
+    const channels = chData?.data?.channels || [];
     const igChannel = channels.find(c=>
       c.service==='instagram' || c.service==='instagram_business' ||
       c.name?.toLowerCase().includes('lcs') || c.name?.toLowerCase().includes('terceirizacao')
@@ -1923,9 +1923,7 @@ async function enviarBufferTodos() {
     try { chData = JSON.parse(chRaw); } catch(e) { console.log('Parse error:', e); }
     
     // Buffer API returns organizations with channels
-    const orgs = chData?.data?.organizations || [];
-    let channels = [];
-    orgs.forEach(org => { channels = channels.concat(org.channels || []); });
+    const channels = chData?.data?.channels || [];
     console.log('All channels:', JSON.stringify(channels));
     
     // Find Instagram - accept any channel type that includes instagram
