@@ -78,7 +78,7 @@ module.exports = async function handler(req, res) {
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
-      body: JSON.stringify({ model: 'dall-e-2', prompt, n: 1, size: '1024x1024' })
+      body: JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size: '1024x1024' })
     });
 
     const data = await response.json();
