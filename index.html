@@ -1477,14 +1477,16 @@ async function gerarLegenda30(dia, formato='post') {
 let _imgSeedCounter = 1000;
 async function gerarImagem30(servico, tema, aspecto='1:1', formato='post') {
   try {
-    const prompt = buildImagePrompt(servico, tema, '') + (formato !== 'post' ? ' Composição vertical 9:16.' : '');
-    const w = aspecto === '9:16' ? 576 : 1024;
-    const h = aspecto === '9:16' ? 1024 : 1024;
+    // Try DALL-E first
+    const fotoData = await buscarFotoIA(servico, _imgSeedCounter % 5, formato);
     _imgSeedCounter += 137;
-    const encodedPrompt = encodeURIComponent(prompt.substring(0, 300));
-    // Direct browser URL - no server needed
-    return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${w}&height=${h}&model=flux&nologo=true&seed=${_imgSeedCounter}`;
-  } catch(e) { return null; }
+    if(fotoData) {
+      return await aplicarLogoCanvas(fotoData, servico, '');
+    }
+  } catch(e) {}
+  // Fallback: canvas
+  _imgSeedCounter += 137;
+  return await gerarImagemCanvas(servico, tema, '', formato, _imgSeedCounter % 30 + 1);
 }
 
 const FORMATO_MISTO = ['post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories'];
