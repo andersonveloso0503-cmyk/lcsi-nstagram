@@ -1239,13 +1239,13 @@ async function enviarBufferUnico() {
     const chRes = await fetch('/api/buffer', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({query:`{ organizations { channels { id name serviceType } } }`})
+      body: JSON.stringify({query:`{ organizations { channels { id name service } } }`})
     });
     console.log('Buffer response status:', chRes.status);
     const chData = await chRes.json();
     const channels = chData?.data?.organizations?.[0]?.channels || [];
     const igChannel = channels.find(c=>
-      c.serviceType==='instagram' || c.serviceType==='instagram_business' ||
+      c.service==='instagram' || c.service==='instagram_business' ||
       c.name?.toLowerCase().includes('lcs') || c.name?.toLowerCase().includes('terceirizacao')
     );
     const channelId = igChannel?.id || channels[0]?.id;
@@ -1932,10 +1932,10 @@ async function enviarBufferTodos() {
     
     // Find Instagram - accept any channel type that includes instagram
     const igChannel = channels.find(c=>
-      (c.serviceType||'').toLowerCase().includes('instagram') ||
+      (c.service||'').toLowerCase().includes('instagram') ||
       (c.name||'').toLowerCase().includes('lcs') ||
       (c.name||'').toLowerCase().includes('terceirizacao')
-    ) || channels[0]; // fallback to first channel
+    ) || channels[0]; // fallback to first channel // fallback to first channel
     
     channelId = igChannel?.id;
     
