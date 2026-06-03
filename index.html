@@ -1237,11 +1237,12 @@ async function enviarBufferUnico() {
     const chRes = await fetch('/api/buffer', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({query:`{ channels { id name } }`})
+      body: JSON.stringify({query:`{ channels { id name type } }`})
     });
     console.log('Buffer response status:', chRes.status);
     const chData = await chRes.json();
     const channels = chData?.data?.channels || [];
+    console.log('Channels:', JSON.stringify(channels));
     const igChannel = channels.find(c=>
       c.service==='instagram' || c.service==='instagram_business' ||
       c.name?.toLowerCase().includes('lcs') || c.name?.toLowerCase().includes('terceirizacao')
@@ -1273,8 +1274,7 @@ ${ultimasTags.join(' ')}`;
       method:'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        query: mutation,
-        variables: { input: { channelId, content: { text: texto }, scheduling: { scheduledAt } } }
+        query: `mutation { createPost(input: { text: ${JSON.stringify(texto)}, channelId: "${channelId}", schedulingType: scheduled, dueAt: "${scheduledAt}" }) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`
       })
     });
 
