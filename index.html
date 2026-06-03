@@ -695,9 +695,15 @@
         </div>
       </div>
 
-      <div style="display:flex;gap:10px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button class="btn btn-primary" style="flex:1;" onclick="aplicarEstiloTodas()">✨ Aplicar Estilo em Todas</button>
-        <button class="btn btn-secondary" onclick="fotosEditor=[];document.getElementById('editor-grid').innerHTML='';document.getElementById('upload-area').querySelector('p').textContent='Arraste fotos aqui ou clique para selecionar';showToast('🗑️ Fotos limpas!')">🗑️ Limpar Tudo</button>
+        <button class="btn btn-secondary" onclick="fotosEditor=[];document.getElementById('editor-grid').innerHTML='';document.getElementById('upload-area').querySelector('p').textContent='Arraste fotos aqui ou clique para selecionar';showToast('🗑️ Fotos limpas!')">🗑️ Limpar</button>
+      </div>
+      <div id="btn-gerar-30-wrapper" style="display:none;margin-top:10px;">
+        <button class="btn btn-green btn-full" onclick="gerarTrintaComMinhasFotos()" style="font-size:15px;padding:14px;">
+          ⚡ Gerar 30 Dias com Minhas Fotos
+        </button>
+        <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:6px;" id="editor-fotos-count"></p>
       </div>
     </div>
 
@@ -1681,12 +1687,26 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
 }
 
 async function buscarFotoIA(servico, dia, formato) {
-  // First try saved user photos
+  // Use user's own photos if available
+  const minhasFotos = fotosEditor.filter(f => f.blobUrl || f.blobSrc);
+  if(minhasFotos.length > 0) {
+    const foto = minhasFotos[dia % minhasFotos.length];
+    if(foto.blobSrc) return foto.blobSrc; // already base64
+    if(foto.blobUrl) {
+      try {
+        const res = await fetch(foto.blobUrl);
+        const buf = await res.arrayBuffer();
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        return `data:image/jpeg;base64,${b64}`;
+      } catch(e) {}
+    }
+  }
+  
+  // Fallback saved photos
   const savedPhotos = carregarFotosSalvas();
   if(savedPhotos.length > 0) {
     const photo = savedPhotos[dia % savedPhotos.length];
     if(photo?.blobUrl) {
-      // Fetch from blob URL
       try {
         const res = await fetch(photo.blobUrl);
         const buf = await res.arrayBuffer();
@@ -2269,10 +2289,18 @@ function renderEditorGrid(resultados) {
       <p style="font-size:11px;color:var(--muted);margin-bottom:8px;">${r.analise.subtitulo}</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-green btn-sm" style="flex:1;font-size:11px;" onclick="baixarFotoEditada('${r.url}','lcs_foto${r.idx+1}.jpg')">⬇️ Baixar</button>
-        <button class="btn btn-secondary btn-sm" style="flex:1;font-size:11px;" onclick="deletarFotoSalva(${r.idx})">🗑️</button>
+        <button class="btn btn-secondary btn-sm" style="font-size:11px;" onclick="deletarFotoSalva(${r.idx})">🗑️</button>
       </div>
     </div>
   `).join('');
+  
+  // Show "Gerar 30 Dias" button
+  const saved = fotosEditor.filter(f => f.blobUrl);
+  if(saved.length > 0) {
+    document.getElementById('btn-gerar-30-wrapper').style.display = 'block';
+    document.getElementById('editor-fotos-count').textContent = 
+      `${saved.length} foto(s) prontas — serão rotacionadas nos 30 dias`;
+  }
 }
 
 async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverride) {
@@ -2405,6 +2433,28 @@ async function enviarFotoBuffer(imgUrl) {
       window.open('https://publish.buffer.com', '_blank');
     }
   } catch(e) { showToast('❌ Erro ao enviar.'); }
+}
+
+async function gerarTrintaComMinhasFotos() {
+  const saved = carregarFotosSalvas();
+  if(!saved.length && !fotosEditor.filter(f=>f.blobUrl).length) {
+    showToast('⚠️ Processe as fotos primeiro!'); return;
+  }
+  
+  // Switch to 30 days tab
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.style.display='none');
+  document.getElementById('sec-trinta').style.display = 'block';
+  document.querySelectorAll('.tab')[1]?.classList.add('active');
+  
+  showToast('🎨 Usando suas fotos nos 30 dias!');
+  
+  // Set flag to use user photos
+  window._usarMinhasFotos = true;
+  
+  // Auto-start generation
+  await gerarTrintaDias();
 }
 
 // INIT
