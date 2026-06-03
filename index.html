@@ -1233,21 +1233,29 @@ async function enviarBufferUnico() {
 
     console.log('Using Buffer key:', bufferKey.substring(0,10) + '...');
 
-    // Get channel ID
-    const chRes = await fetch('/api/buffer', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({query:`{ channels { id name type } }`})
+    // Step 1: Get org ID
+    const orgRes = await fetch('/api/buffer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({query:`query { account { organizations { id name } } }`})
     });
-    console.log('Buffer response status:', chRes.status);
+    const orgData = await orgRes.json();
+    console.log('Orgs:', JSON.stringify(orgData));
+    const orgId = orgData?.data?.account?.organizations?.[0]?.id;
+    if(!orgId) { showToast('❌ Org não encontrada no Buffer.'); btn.innerHTML='📤 Enviar ao Buffer'; btn.disabled=false; return; }
+
+    // Step 2: Get channels with orgId
+    const chRes = await fetch('/api/buffer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({query:`query { channels(input: { organizationId: "${orgId}" }) { id name service } }`})
+    });
     const chData = await chRes.json();
+    console.log('Channels:', JSON.stringify(chData));
     const channels = chData?.data?.channels || [];
-    console.log('Channels:', JSON.stringify(channels));
     const igChannel = channels.find(c=>
-      c.service==='instagram' || c.service==='instagram_business' ||
-      c.name?.toLowerCase().includes('lcs') || c.name?.toLowerCase().includes('terceirizacao')
-    );
-    const channelId = igChannel?.id || channels[0]?.id;
+      (c.service||'').includes('instagram') ||
+      (c.name||'').toLowerCase().includes('lcs')
+    ) || channels[0];
+    const channelId = igChannel?.id;
 
     if(!channelId) {
       showToast('❌ Canal Instagram não encontrado no Buffer!');
