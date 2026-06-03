@@ -12,14 +12,13 @@ module.exports = async function handler(req, res) {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json', 
-        'Authorization': `Bearer ${key}`,
-        'User-Agent': 'LCS-Instagram-Manager/1.0'
+        'Authorization': `Bearer ${key}`
       },
       body: JSON.stringify({ query, variables })
     });
 
     const text = await response.text();
-    console.log('Buffer status:', response.status, 'body:', text.substring(0, 200));
+    console.log('Buffer status:', response.status, 'body:', text.substring(0, 300));
     
     try {
       const data = JSON.parse(text);
