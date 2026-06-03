@@ -1282,8 +1282,7 @@ ${ultimasTags.join(' ')}`;
       method:'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        query: `mutation CreatePost($input: CreatePostInput!) { createPost(input: $input) { ... on PostActionSuccess { post { id status } } ... on MutationError { message } } }`,
-        variables: { input: { text: texto, channelId: channelId, schedulingType: 'scheduledTime', dueAt: scheduledAt, mode: 'DEFAULT' } }
+        query: `mutation { createPost(input: { text: ${JSON.stringify(texto)}, channelId: "${channelId}", schedulingType: automatic, mode: customScheduled, dueAt: "${scheduledAt}" }) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`
       })
     });
 
