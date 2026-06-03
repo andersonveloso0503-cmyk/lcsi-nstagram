@@ -641,13 +641,18 @@
       <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Faça upload das suas fotos reais e aplique diferentes estilos visuais automaticamente.</p>
 
       <!-- Upload Area -->
-      <div id="upload-area" onclick="document.getElementById('file-input').click()" style="
+      <div id="upload-area" style="
         border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;
         cursor:pointer;transition:.2s;margin-bottom:20px;
-      " onmouseover="this.style.borderColor='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)'">
+      "
+        onclick="document.getElementById('file-input').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent2)';this.style.background='rgba(37,99,235,0.05)'"
+        ondragleave="this.style.borderColor='var(--border)';this.style.background=''"
+        ondrop="event.preventDefault();this.style.borderColor='var(--border)';this.style.background='';carregarFotos(event.dataTransfer.files)"
+      >
         <div style="font-size:48px;margin-bottom:12px;">📸</div>
-        <p style="color:var(--text);font-size:14px;font-weight:500;">Clique para selecionar fotos</p>
-        <p style="color:var(--muted);font-size:12px;">JPG, PNG — múltiplas fotos aceitas</p>
+        <p style="color:var(--text);font-size:14px;font-weight:500;">Arraste fotos aqui ou clique para selecionar</p>
+        <p style="color:var(--muted);font-size:12px;">JPG, PNG, WEBP, HEIC — múltiplas fotos aceitas</p>
         <input type="file" id="file-input" accept="image/*" multiple style="display:none" onchange="carregarFotos(this.files)">
       </div>
 
