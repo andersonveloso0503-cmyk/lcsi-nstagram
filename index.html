@@ -2228,13 +2228,17 @@ async function aplicarEstiloTodas() {
     // Analyze with AI
     const analise = await analisarFotoIA(fotosEditor[i].src);
     
-    // Apply style with AI-generated text
+    // Apply style with AI-generated text (unique per photo)
     const url = await aplicarEstiloFoto(
       fotosEditor[i].src, 
       fotosEditor[i].nome,
-      analise.titulo,
-      analise.subtitulo
+      analise.titulo,    // AI title - unique per photo
+      analise.subtitulo  // AI subtitle - unique per photo
     );
+    // Store AI text in fotosEditor
+    fotosEditor[i].titulo = analise.titulo;
+    fotosEditor[i].subtitulo = analise.subtitulo;
+    fotosEditor[i].blobSrc = url;
     resultados.push({ url, nome: fotosEditor[i].nome, idx: i, analise });
     
     // Show as they complete
@@ -2306,8 +2310,8 @@ function renderEditorGrid(resultados) {
 async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverride) {
   return new Promise(resolve => {
     const estilo = document.getElementById('estilo-visual').value;
-    const titulo = tituloOverride || document.getElementById('editor-titulo').value || 'LCS Terceirização';
-    const subtitulo = subtituloOverride || document.getElementById('editor-subtitulo').value || 'Qualidade garantida!';
+    const titulo = tituloOverride || 'LCS Terceirização';
+    const subtitulo = subtituloOverride || 'Qualidade garantida!';
     const formato = document.getElementById('editor-formato').value;
     const opacity = parseInt(document.getElementById('editor-opacity').value) / 100;
     const E = ESTILOS[estilo] || ESTILOS.lcs_red;
