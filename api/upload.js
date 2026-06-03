@@ -1,5 +1,3 @@
-const { put } = require('@vercel/blob');
-
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -12,17 +10,19 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid image data' });
     }
 
-    // Convert base64 to buffer
     const base64 = imageData.split(',')[1];
     const buffer = Buffer.from(base64, 'base64');
     const filename = `lcs-post-${Date.now()}.jpg`;
 
-    // Upload to Vercel Blob
+    // Dynamic import for @vercel/blob
+    const { put } = await import('@vercel/blob');
     const blob = await put(filename, buffer, {
       access: 'public',
-      contentType: 'image/jpeg'
+      contentType: 'image/jpeg',
+      token: process.env.BLOB_READ_WRITE_TOKEN
     });
 
+    console.log('Uploaded to:', blob.url);
     res.status(200).json({ url: blob.url });
   } catch (err) {
     console.error('Upload error:', err.message);
