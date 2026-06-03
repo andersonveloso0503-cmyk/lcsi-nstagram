@@ -18,13 +18,13 @@ module.exports = async function handler(req, res) {
     });
 
     const text = await response.text();
-    console.log('Buffer status:', response.status, 'body:', text.substring(0, 300));
+    console.log('Buffer status:', response.status, 'body:', text.substring(0, 500));
     
     try {
       const data = JSON.parse(text);
       res.status(200).json(data);
     } catch(e) {
-      res.status(200).json({ raw: text, status: response.status });
+      res.status(200).json({ raw: text });
     }
   } catch (err) {
     console.error('Buffer error:', err.message);
