@@ -1677,33 +1677,16 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
 }
 
 async function buscarFotoIA(servico, dia, formato) {
-  // Use user's own photos if available
-  const minhasFotos = fotosEditor.filter(f => f.blobUrl || f.blobSrc);
-  if(minhasFotos.length > 0) {
-    const foto = minhasFotos[dia % minhasFotos.length];
-    if(foto.blobSrc) return foto.blobSrc; // already base64
-    if(foto.blobUrl) {
-      try {
-        const res = await fetch(foto.blobUrl);
-        const buf = await res.arrayBuffer();
-        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        return `data:image/jpeg;base64,${b64}`;
-      } catch(e) {}
-    }
-  }
+  // Search Banco de Temas by matching service category
+  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
+  const fotosReais = temas.filter(t => t.tipo === 'foto_real' && t.imgSrc);
   
-  // Fallback saved photos
-  const savedPhotos = carregarFotosSalvas();
-  if(savedPhotos.length > 0) {
-    const photo = savedPhotos[dia % savedPhotos.length];
-    if(photo?.blobUrl) {
-      try {
-        const res = await fetch(photo.blobUrl);
-        const buf = await res.arrayBuffer();
-        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        return `data:image/jpeg;base64,${b64}`;
-      } catch(e) {}
-    }
+  if(fotosReais.length > 0) {
+    // First try exact category match
+    const match = fotosReais.filter(f => f.servico === servico || f.servico === 'geral');
+    const pool = match.length > 0 ? match : fotosReais;
+    const foto = pool[dia % pool.length];
+    if(foto?.imgSrc) return foto.imgSrc;
   }
   
   // Fallback to Pexels
@@ -2272,29 +2255,36 @@ async function aplicarEstiloTodas() {
   
   showToast(`🎨 ${resultados.length} foto(s) estilizadas com IA!`);
   
-  // Save to Vercel Blob for permanent storage
-  showToast('💾 Salvando no servidor...');
+  // Auto-save all processed photos to Banco de Temas
+  showToast('💾 Salvando no Banco de Temas...');
+  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
+  
   for(let i = 0; i < resultados.length; i++) {
-    const blobUrl = await salvarFotoBlob(resultados[i].url, resultados[i].nome);
-    if(blobUrl) {
-      fotosEditor[resultados[i].idx].blobUrl = blobUrl;
-      fotosEditor[resultados[i].idx].blobSrc = resultados[i].url;
-      fotosEditor[resultados[i].idx].titulo = resultados[i].analise.titulo;
-      fotosEditor[resultados[i].idx].subtitulo = resultados[i].analise.subtitulo;
+    const r = resultados[i];
+    const foto = fotosEditor[r.idx];
+    foto.blobSrc = r.url;
+    foto.titulo = r.analise.titulo;
+    foto.subtitulo = r.analise.subtitulo;
+    foto.servico = r.analise.servico || 'geral';
+    
+    // Check if already saved (avoid duplicates)
+    const exists = temas.find(t => t.nome === foto.nome);
+    if(!exists) {
+      temas.unshift({
+        id: Date.now() + i,
+        titulo: r.analise.titulo,
+        subtitulo: r.analise.subtitulo,
+        imgSrc: r.url,
+        servico: r.analise.servico || 'geral',
+        nome: foto.nome,
+        tipo: 'foto_real',
+        createdAt: new Date().toISOString()
+      });
     }
   }
   
-  // Save to localStorage for persistence
-  const savedPhotos = fotosEditor.filter(f => f.blobUrl).map(f => ({
-    blobUrl: f.blobUrl,
-    nome: f.nome,
-    titulo: f.titulo,
-    subtitulo: f.subtitulo
-  }));
-  localStorage.setItem('lcs_fotos', JSON.stringify(savedPhotos));
-  showToast(`✅ ${savedPhotos.length} foto(s) salvas permanentemente!`);
-  
-  // Update grid with saved indicator
+  localStorage.setItem('lcs_banco_temas', JSON.stringify(temas));
+  showToast(`✅ ${resultados.length} foto(s) salvas no Banco de Temas!`);
   renderEditorGrid(resultados);
 }
 
