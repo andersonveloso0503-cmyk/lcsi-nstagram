@@ -319,6 +319,9 @@
   <div class="nav-item" onclick="setNav(this,'temas')">
     <span class="nav-icon">🎯</span> Banco de Temas
   </div>
+  <div class="nav-item" onclick="setNav(this,'editor')">
+    <span class="nav-icon">🎨</span> Editor de Fotos
+  </div>
 </aside>
 
 <!-- MAIN -->
@@ -364,6 +367,7 @@
     <button class="tab" onclick="switchTab('calendario',this)">📅 Calendário</button>
     <button class="tab" onclick="switchTab('posts',this)">📋 Meus Posts</button>
     <button class="tab" onclick="switchTab('temas',this)">🎯 Banco de Temas</button>
+    <button class="tab" onclick="switchTab('editor',this)">🎨 Editor de Fotos</button>
   </div>
 
   <!-- GERADOR -->
@@ -630,6 +634,69 @@
     <div id="trinta-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
   </div>
 
+  <!-- EDITOR DE FOTOS -->
+  <div class="section" id="sec-editor">
+    <div class="card" style="margin-bottom:20px;">
+      <h3><span>🎨</span> Editor de Fotos — Estilo LCS</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Faça upload das suas fotos reais e aplique diferentes estilos visuais automaticamente.</p>
+
+      <!-- Upload Area -->
+      <div id="upload-area" onclick="document.getElementById('file-input').click()" style="
+        border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;
+        cursor:pointer;transition:.2s;margin-bottom:20px;
+      " onmouseover="this.style.borderColor='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:48px;margin-bottom:12px;">📸</div>
+        <p style="color:var(--text);font-size:14px;font-weight:500;">Clique para selecionar fotos</p>
+        <p style="color:var(--muted);font-size:12px;">JPG, PNG — múltiplas fotos aceitas</p>
+        <input type="file" id="file-input" accept="image/*" multiple style="display:none" onchange="carregarFotos(this.files)">
+      </div>
+
+      <!-- Style Options -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px;">
+        <div>
+          <label>Estilo Visual</label>
+          <select id="estilo-visual">
+            <option value="lcs_red">🔴 LCS Vermelho (padrão)</option>
+            <option value="lcs_blue">🔵 LCS Azul</option>
+            <option value="lcs_dark">⚫ LCS Dark</option>
+            <option value="lcs_purple">🟣 LCS Roxo</option>
+            <option value="lcs_green">🟢 LCS Verde</option>
+            <option value="minimal">◻️ Minimalista</option>
+          </select>
+        </div>
+        <div>
+          <label>Texto Principal</label>
+          <input type="text" id="editor-titulo" placeholder="Ex: Limpeza Profissional" value="Limpeza Profissional">
+        </div>
+        <div>
+          <label>Subtítulo</label>
+          <input type="text" id="editor-subtitulo" placeholder="Ex: Qualidade garantida!" value="Qualidade garantida!">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+        <div>
+          <label>Formato</label>
+          <select id="editor-formato">
+            <option value="post">🖼️ Post (1:1)</option>
+            <option value="stories">📱 Stories (9:16)</option>
+            <option value="reels">🎬 Reels (9:16)</option>
+          </select>
+        </div>
+        <div>
+          <label>Opacidade do overlay</label>
+          <input type="range" id="editor-opacity" min="30" max="80" value="55" style="margin-top:8px;">
+          <div style="font-size:11px;color:var(--muted);text-align:right;" id="opacity-label">55%</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="aplicarEstiloTodas()">✨ Aplicar Estilo em Todas as Fotos</button>
+    </div>
+
+    <!-- Photo Grid -->
+    <div id="editor-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;"></div>
+  </div>
+
   <!-- TEMAS -->
   <div class="section" id="sec-temas">
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" id="banco-temas"></div>
@@ -682,7 +749,7 @@ let ultimasTags = [];
 function setNav(el, tab) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   el.classList.add('active');
-  switchTab(tab, document.querySelectorAll('.tab')[['gerador','trinta','calendario','posts','temas'].indexOf(tab)]);
+  switchTab(tab, document.querySelectorAll('.tab')[['gerador','trinta','calendario','posts','temas','editor'].indexOf(tab)]);
 }
 
 function switchTab(id, btn) {
@@ -693,6 +760,7 @@ function switchTab(id, btn) {
   if(id==='calendario') renderCalendario();
   if(id==='posts') renderPosts();
   if(id==='temas') renderTemas();
+  if(id==='editor') initEditor();
   if(id==='trinta') initTrinta();
   updateStats();
 }
@@ -1722,8 +1790,14 @@ async function gerarImagemCanvas(servico, tema, legenda, formato, dia) {
       resolve(cv.toDataURL('image/jpeg', 0.92));
     };
 
-    // Skip DALL-E for 30 days - use canvas directly
-    drawCanvas(null);
+    // Try Pexels photo first, fallback to canvas
+    const pexelsData = await buscarFotoIA(servico, dia, formato);
+    if(pexelsData) {
+      const withLogo = await aplicarLogoCanvas(pexelsData, servico, legenda);
+      resolve(withLogo);
+    } else {
+      drawCanvas(null);
+    }
   });
 }
 
@@ -2005,6 +2079,182 @@ async function enviarBufferTodos() {
   showToast(`✅ ${enviados} posts enviados para o Buffer! ${erros>0?`⚠️ ${erros} erros.`:''}`);
 }
 
+
+// =============================================
+// EDITOR DE FOTOS
+// =============================================
+let fotosEditor = [];
+
+const ESTILOS = {
+  lcs_red:    { cor1:'rgba(185,28,28,0.92)',    cor2:'rgba(153,20,20,0.95)',   filtro:'rgba(185,28,28,0.18)',   nome:'LCS Vermelho' },
+  lcs_blue:   { cor1:'rgba(29,78,216,0.92)',    cor2:'rgba(30,58,138,0.95)',   filtro:'rgba(29,78,216,0.18)',   nome:'LCS Azul' },
+  lcs_dark:   { cor1:'rgba(15,15,15,0.95)',     cor2:'rgba(30,30,30,0.98)',    filtro:'rgba(0,0,0,0.3)',        nome:'LCS Dark' },
+  lcs_purple: { cor1:'rgba(109,40,217,0.92)',   cor2:'rgba(76,29,149,0.95)',   filtro:'rgba(109,40,217,0.18)', nome:'LCS Roxo' },
+  lcs_green:  { cor1:'rgba(5,122,85,0.92)',     cor2:'rgba(4,99,69,0.95)',     filtro:'rgba(5,122,85,0.18)',   nome:'LCS Verde' },
+  minimal:    { cor1:'rgba(0,0,0,0.85)',        cor2:'rgba(0,0,0,0.9)',        filtro:'rgba(0,0,0,0.1)',       nome:'Minimalista' }
+};
+
+function initEditor() {
+  document.getElementById('editor-opacity').oninput = function() {
+    document.getElementById('opacity-label').textContent = this.value + '%';
+    if(fotosEditor.length) aplicarEstiloTodas();
+  };
+}
+
+function carregarFotos(files) {
+  fotosEditor = [];
+  const promises = Array.from(files).map(f => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => { fotosEditor.push({ src: e.target.result, nome: f.name }); resolve(); };
+    reader.readAsDataURL(f);
+  }));
+  Promise.all(promises).then(() => {
+    showToast(`✅ ${fotosEditor.length} foto(s) carregada(s)!`);
+    aplicarEstiloTodas();
+  });
+}
+
+async function aplicarEstiloTodas() {
+  if(!fotosEditor.length) { showToast('⚠️ Carregue fotos primeiro!'); return; }
+  const grid = document.getElementById('editor-grid');
+  grid.innerHTML = '<p style="color:var(--muted);text-align:center;grid-column:1/-1;">Processando...</p>';
+  
+  const resultados = [];
+  for(let i = 0; i < fotosEditor.length; i++) {
+    const url = await aplicarEstiloFoto(fotosEditor[i].src, fotosEditor[i].nome);
+    resultados.push({ url, nome: fotosEditor[i].nome, idx: i });
+  }
+  
+  grid.innerHTML = resultados.map(r => `
+    <div class="card" style="padding:12px;">
+      <img src="${r.url}" style="width:100%;border-radius:8px;margin-bottom:10px;">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.nome}</p>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-green btn-sm" style="flex:1;font-size:11px;" onclick="baixarFotoEditada('${r.url}','lcs_${r.idx+1}.jpg')">⬇️ Baixar</button>
+        <button class="btn btn-primary btn-sm" style="flex:1;font-size:11px;" onclick="enviarFotoBuffer('${r.url}')">📤 Buffer</button>
+      </div>
+    </div>
+  `).join('');
+  
+  showToast(`🎨 ${resultados.length} foto(s) estilizadas!`);
+}
+
+async function aplicarEstiloFoto(fotoSrc, nome) {
+  return new Promise(resolve => {
+    const estilo = document.getElementById('estilo-visual').value;
+    const titulo = document.getElementById('editor-titulo').value || 'LCS Terceirização';
+    const subtitulo = document.getElementById('editor-subtitulo').value || 'Qualidade garantida!';
+    const formato = document.getElementById('editor-formato').value;
+    const opacity = parseInt(document.getElementById('editor-opacity').value) / 100;
+    const E = ESTILOS[estilo] || ESTILOS.lcs_red;
+
+    const isV = formato === 'stories' || formato === 'reels';
+    const W = isV ? 576 : 1024, H = isV ? 1024 : 1024;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    const img = new Image();
+    img.onload = () => {
+      // Draw photo
+      const scale = Math.max(W/img.width, H/img.height);
+      const sw = img.width * scale, sh = img.height * scale;
+      ctx.drawImage(img, (W-sw)/2, (H-sh)/2, sw, sh);
+
+      // Color filter overlay
+      ctx.fillStyle = E.filtro;
+      ctx.fillRect(0,0,W,H);
+
+      // Dark gradient
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0, `rgba(0,0,0,${opacity*0.7})`);
+      grad.addColorStop(0.4, `rgba(0,0,0,${opacity*0.2})`);
+      grad.addColorStop(1, `rgba(0,0,0,${opacity})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+
+      // Top bar
+      ctx.fillStyle = E.cor1;
+      ctx.fillRect(0,0,W,Math.round(H*0.09));
+
+      // Logo
+      try { ctx.drawImage(_logoCache, 8, 6, 72, 72); } catch(e){}
+
+      // Company name
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.round(W*0.028)}px Arial`;
+      ctx.textAlign = 'left';
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
+      ctx.fillText('LCS Terceirização', 92, Math.round(H*0.038));
+      ctx.font = `${Math.round(W*0.018)}px Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillText('Limpeza  •  Portaria  •  Facilities', 92, Math.round(H*0.062));
+      ctx.shadowBlur = 0;
+
+      // Main title - large
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 12;
+      ctx.font = `bold ${Math.round(W*0.072)}px Arial`;
+      const words = titulo.split(' ');
+      let line='', y=Math.round(H*0.52), lh=Math.round(W*0.082);
+      let lines=[];
+      for(let n=0;n<words.length;n++){
+        const tl=line+words[n]+' ';
+        if(ctx.measureText(tl).width>W*0.85&&n>0){lines.push(line.trim());line=words[n]+' ';}
+        else{line=tl;}
+        if(lines.length>=3) break;
+      }
+      if(line.trim()) lines.push(line.trim());
+      lines.slice(0,3).forEach((l,i)=>ctx.fillText(l,W*0.05,y+i*lh));
+
+      // Subtitle in accent color
+      ctx.fillStyle = '#fca5a5';
+      ctx.font = `bold ${Math.round(W*0.038)}px Arial`;
+      ctx.fillText(subtitulo, W*0.05, y + lines.length*lh + 10);
+      ctx.shadowBlur = 0;
+
+      // Bottom bar
+      ctx.fillStyle = E.cor2;
+      ctx.fillRect(0, Math.round(H*0.88), W, Math.round(H*0.12));
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.round(W*0.026)}px Arial`;
+      ctx.textAlign = 'left';
+      ctx.fillText('📱 (51) 99889-3033', W*0.04, Math.round(H*0.933));
+      ctx.textAlign = 'right';
+      ctx.fillText('@lcs_terceirizacao', W*0.96, Math.round(H*0.933));
+      ctx.textAlign = 'center';
+      ctx.font = `${Math.round(W*0.019)}px Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.fillText('lcsterceirizacaors.com.br', W/2, Math.round(H*0.973));
+
+      resolve(cv.toDataURL('image/jpeg', 0.92));
+    };
+    img.src = fotoSrc;
+  });
+}
+
+function baixarFotoEditada(url, nome) {
+  const a = document.createElement('a');
+  a.href = url; a.download = nome; a.click();
+  showToast('⬇️ Foto baixada!');
+}
+
+async function enviarFotoBuffer(imgUrl) {
+  showToast('📤 Enviando para o Buffer...');
+  // Upload to Vercel Blob first
+  try {
+    const uploadRes = await fetch('/api/upload', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ imageData: imgUrl })
+    });
+    const uploadData = await uploadRes.json();
+    if(uploadData.url) {
+      showToast('✅ Foto enviada! Cole a legenda no Buffer.');
+      window.open('https://publish.buffer.com', '_blank');
+    }
+  } catch(e) { showToast('❌ Erro ao enviar.'); }
+}
 
 // INIT
 updateStats();
