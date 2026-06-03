@@ -1283,7 +1283,7 @@ ${ultimasTags.join(' ')}`;
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         query: `mutation CreatePost($input: CreatePostInput!) { createPost(input: $input) { ... on PostActionSuccess { post { id status } } ... on MutationError { message } } }`,
-        variables: { input: { text: texto, channelId: channelId, schedulingType: 'scheduled', dueAt: scheduledAt } }
+        variables: { input: { text: texto, channelId: channelId, schedulingType: 'scheduledTime', dueAt: scheduledAt, mode: 'DEFAULT' } }
       })
     });
 
