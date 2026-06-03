@@ -1084,18 +1084,8 @@ function mudaMes(dir) {
 
 // BANCO DE TEMAS
 function renderTemas() {
-  const temas = [
-    {icon:'🏗️', titulo:'Síndicos e Condomínios', desc:'Conteúdo direcionado a síndicos e administradoras: limpeza, portaria e gestão condominial.', sugestoes:['#sindicos','#condominio','Portaria profissional','Condomínio limpo']},
-    {icon:'🛍️', titulo:'Lojas e Estabelecimentos', desc:'Posts para donos de lojas, shoppings e estabelecimentos comerciais que precisam de limpeza.', sugestoes:['#lojas','#estabelecimentos','Ambiente limpo','Limpeza comercial']},
-    {icon:'🏥', titulo:'Hospitais e Clínicas', desc:'Conteúdo sobre higienização hospitalar, biossegurança e limpeza especializada para saúde.', sugestoes:['#hospitais','#clinicas','Higienização rigorosa','Biossegurança']},
-    {icon:'🧹', titulo:'Limpeza Profissional', desc:'Posts sobre higienização, conservação predial, limpeza de escritórios e condomínios.', sugestoes:['Antes e depois','Produtos certificados','Equipe treinada']},
-    {icon:'🏢', titulo:'Portaria e Recepção', desc:'Conteúdos sobre segurança condominial, controle de acesso e recepção corporativa.', sugestoes:['Portaria 24h','Controle de acesso','Profissionalismo']},
-    {icon:'🔧', titulo:'Facilities e Manutenção', desc:'Posts sobre manutenção preventiva, facilities management e gestão predial.', sugestoes:['Manutenção preventiva','Gestão de facilities','Economia de custos']},
-    {icon:'📞', titulo:'Captação de Leads', desc:'Posts com foco em gerar orçamentos e contatos pelo WhatsApp.', sugestoes:['Orçamento grátis','Atendimento rápido','Solicite já']},
-    {icon:'🏆', titulo:'Diferenciais LCS', desc:'O que torna a LCS diferente da concorrência em Porto Alegre.', sugestoes:['Por que escolher LCS','Experiência comprovada','Qualidade garantida']},
-    {icon:'🌟', titulo:'Cases e Resultados', desc:'Depoimentos e casos de sucesso com síndicos, lojas, clínicas e empresas.', sugestoes:['Cliente satisfeito','Resultado garantido','Parceria de sucesso']},
-    {icon:'👥', titulo:'Nossa Equipe', desc:'Valorização dos colaboradores e cultura da empresa LCS.', sugestoes:['Profissionais treinados','Nossa equipe','Compromisso com qualidade']},
-  ];
+  const temasSalvosExtra = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
+  const temas = [...temasSalvosExtra, ...(window.TEMAS_BASE || [])]
 
   document.getElementById('banco-temas').innerHTML = temas.map(t=>`
     <div class="card">
@@ -2182,7 +2172,9 @@ function carregarFotos(files) {
   });
 }
 
-async function analisarFotoIA(base64Src) {
+const _titulosUsados = new Set();
+
+async function analisarFotoIA(base64Src, indice) {
   try {
     const base64 = base64Src.split(',')[1];
     const mediaType = base64Src.split(';')[0].split(':')[1] || 'image/jpeg';
@@ -2191,24 +2183,49 @@ async function analisarFotoIA(base64Src) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 200,
+        max_tokens: 300,
         messages: [{
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-            { type: 'text', text: `Analise esta foto de serviço da empresa LCS Terceirização (limpeza, portaria, facilities).
-Responda SOMENTE em JSON assim: {"titulo":"TEXTO EM MAIUSCULO ATÉ 4 PALAVRAS","subtitulo":"Frase impactante até 5 palavras!","servico":"limpeza|portaria|facilities|geral"}
-Exemplos: {"titulo":"AMBIENTES SEMPRE LIMPOS","subtitulo":"Resultado que fala por si!","servico":"limpeza"}` }
+            { type: 'text', text: `Você é especialista em marketing para a LCS Terceirização (limpeza, portaria, facilities em Porto Alegre).
+Analise ESTA FOTO ESPECÍFICA com atenção e crie um texto ÚNICO e DIFERENTE das outras fotos.
+Títulos já usados (NÃO repita): ${JSON.stringify([..._titulosUsados])}
+
+Responda SOMENTE JSON (sem markdown):
+{"titulo":"FRASE IMPACTANTE EM CAPS 3-5 PALAVRAS","subtitulo":"benefício específico desta foto!","servico":"limpeza|portaria|facilities|condominio|hospitais|geral"}
+
+Regras:
+- Título DIFERENTE de todos já usados
+- Baseado no que você VÊ na foto (pessoa, local, equipamento)
+- Subtítulo específico ao serviço mostrado` }
           ]
         }]
       })
     });
     const data = await res.json();
     const text = data.content?.[0]?.text || '';
-    const jsonMatch = text.match(/\{[^}]+\}/);
-    if(jsonMatch) return JSON.parse(jsonMatch[0]);
-  } catch(e) {}
-  return { titulo: 'QUALIDADE LCS', subtitulo: 'Profissionalismo garantido!', servico: 'geral' };
+    console.log(`Foto ${indice} AI response:`, text);
+    const jsonMatch = text.match(/\{[^{}]+\}/);
+    if(jsonMatch) {
+      const result = JSON.parse(jsonMatch[0]);
+      _titulosUsados.add(result.titulo);
+      return result;
+    }
+  } catch(e) { console.error('AI error:', e); }
+  
+  // Unique fallbacks
+  const fallbacks = [
+    { titulo: 'LIMPEZA DE EXCELÊNCIA', subtitulo: 'Ambientes impecáveis sempre!' },
+    { titulo: 'PORTARIA PROFISSIONAL', subtitulo: 'Segurança e recepção 24h!' },
+    { titulo: 'EQUIPE QUALIFICADA', subtitulo: 'Treinamento e dedicação!' },
+    { titulo: 'HIGIENIZAÇÃO TOTAL', subtitulo: 'Protocolos rigorosos de limpeza!' },
+    { titulo: 'FACILITIES COMPLETO', subtitulo: 'Manutenção preventiva garantida!' },
+    { titulo: 'CONDOMÍNIO EM ORDEM', subtitulo: 'Gestão profissional do espaço!' },
+    { titulo: 'RESULTADO GARANTIDO', subtitulo: 'Satisfação do cliente em 1º!' },
+    { titulo: 'SERVIÇO TERCEIRIZADO', subtitulo: 'Foco no seu negócio principal!' },
+  ];
+  return { ...fallbacks[indice % fallbacks.length], servico: 'geral' };
 }
 
 async function aplicarEstiloTodas() {
@@ -2221,12 +2238,10 @@ async function aplicarEstiloTodas() {
     Analisando ${fotosEditor.length} foto(s) com IA...</p>`;
   
   const resultados = [];
+  _titulosUsados.clear();
   for(let i = 0; i < fotosEditor.length; i++) {
-    // Update progress
     grid.querySelector('p').textContent = `Processando foto ${i+1}/${fotosEditor.length}...`;
-    
-    // Analyze with AI
-    const analise = await analisarFotoIA(fotosEditor[i].src);
+    const analise = await analisarFotoIA(fotosEditor[i].src, i);
     
     // Apply style with AI-generated text (unique per photo)
     const url = await aplicarEstiloFoto(
@@ -2293,6 +2308,7 @@ function renderEditorGrid(resultados) {
       <p style="font-size:11px;color:var(--muted);margin-bottom:8px;">${r.analise.subtitulo}</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-green btn-sm" style="flex:1;font-size:11px;" onclick="baixarFotoEditada('${r.url}','lcs_foto${r.idx+1}.jpg')">⬇️ Baixar</button>
+        <button class="btn btn-primary btn-sm" style="flex:1;font-size:11px;" onclick="salvarNoBancoTemas(${r.idx})">🎯 Banco</button>
         <button class="btn btn-secondary btn-sm" style="font-size:11px;" onclick="deletarFotoSalva(${r.idx})">🗑️</button>
       </div>
     </div>
@@ -2407,6 +2423,32 @@ function carregarFotosSalvas() {
     const saved = JSON.parse(localStorage.getItem('lcs_fotos') || '[]');
     return saved;
   } catch(e) { return []; }
+}
+
+function salvarNoBancoTemas(idx) {
+  const foto = fotosEditor[idx];
+  if(!foto) return;
+  
+  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
+  
+  const novoTema = {
+    id: Date.now(),
+    titulo: foto.titulo || 'Foto LCS',
+    subtitulo: foto.subtitulo || '',
+    imgUrl: foto.blobUrl || foto.blobSrc || foto.src,
+    servico: foto.servico || 'geral',
+    tipo: 'foto_real',
+    createdAt: new Date().toISOString()
+  };
+  
+  temas.unshift(novoTema);
+  localStorage.setItem('lcs_banco_temas', JSON.stringify(temas));
+  showToast('✅ Foto salva no Banco de Temas!');
+  
+  // Re-render if on temas tab
+  if(document.getElementById('sec-temas').style.display !== 'none') {
+    renderTemas();
+  }
 }
 
 function deletarFotoSalva(idx) {
