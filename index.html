@@ -1298,7 +1298,7 @@ ${ultimasTags.join(' ')}`;
       method:'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        query: `mutation { createPost(input: { text: ${JSON.stringify(texto)}, channelId: "${channelId}", schedulingType: automatic, mode: customScheduled, dueAt: "${scheduledAt}"${assetsField} }) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`
+        query: `mutation { createPost(input: { text: ${JSON.stringify(texto)}, channelId: "${channelId}", schedulingType: automatic, mode: customScheduled, dueAt: "${scheduledAt}", instagramOptions: { type: post }${assetsField} }) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`
       })
     });
 
