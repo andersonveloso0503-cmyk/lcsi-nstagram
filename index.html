@@ -1236,9 +1236,9 @@ async function enviarBufferUnico() {
     console.log('Using Buffer key:', bufferKey.substring(0,10) + '...');
 
     // Get channel ID
-    const chRes = await fetch('https://api.buffer.com/graphql', {
+    const chRes = await fetch('/api/buffer', {
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${bufferKey}`},
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify({query:`{ organizations { channels { id name serviceType } } }`})
     });
     console.log('Buffer response status:', chRes.status);
@@ -1271,9 +1271,9 @@ ${ultimasTags.join(' ')}`;
         createPost(input: $input) { post { id status } }
       }`;
 
-    const res = await fetch('https://api.buffer.com/graphql', {
+    const res = await fetch('/api/buffer', {
       method:'POST',
-      headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${bufferKey}`},
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         query: mutation,
         variables: { input: { channelId, content: { text: texto }, scheduling: { scheduledAt } } }
@@ -1913,7 +1913,7 @@ async function enviarBufferTodos() {
   // First get channel ID
   let channelId = null;
   try {
-    const chRes = await fetch('https://api.buffer.com/graphql', {
+    const chRes = await fetch('/api/buffer', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({query:`{ organizations { channels { id name serviceType } } }`, key})
@@ -1980,7 +1980,7 @@ async function enviarBufferTodos() {
           scheduling: { scheduledAt }
         }
       };
-      const res = await fetch('https://api.buffer.com/graphql', {
+      const res = await fetch('/api/buffer', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({query: mutation, variables})
