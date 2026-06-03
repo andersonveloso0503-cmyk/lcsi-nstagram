@@ -1476,16 +1476,8 @@ async function gerarLegenda30(dia, formato='post') {
 
 let _imgSeedCounter = 1000;
 async function gerarImagem30(servico, tema, aspecto='1:1', formato='post') {
-  try {
-    // Try DALL-E first
-    const fotoData = await buscarFotoIA(servico, _imgSeedCounter % 5, formato);
-    _imgSeedCounter += 137;
-    if(fotoData) {
-      return await aplicarLogoCanvas(fotoData, servico, '');
-    }
-  } catch(e) {}
-  // Fallback: canvas
   _imgSeedCounter += 137;
+  // Use canvas directly - fast and reliable
   return await gerarImagemCanvas(servico, tema, '', formato, _imgSeedCounter % 30 + 1);
 }
 
@@ -1730,16 +1722,8 @@ async function gerarImagemCanvas(servico, tema, legenda, formato, dia) {
       resolve(cv.toDataURL('image/jpeg', 0.92));
     };
 
-    // Fetch real photo via DALL-E
-    const pexelsData = await buscarFotoIA(servico, dia, formato);
-    if(pexelsData) {
-      // Apply logo overlay
-      const withLogo = await aplicarLogoCanvas(pexelsData, servico, legenda);
-      resolve(withLogo);
-    } else {
-      // Fallback colored canvas
-      drawCanvas(null);
-    }
+    // Skip DALL-E for 30 days - use canvas directly
+    drawCanvas(null);
   });
 }
 
@@ -1767,17 +1751,18 @@ async function gerarPreview() {
   imgBox.innerHTML = '<span class="spinner" style="width:28px;height:28px;border-width:3px;"></span>';
 
   try {
+    let canvasUrl;
     const fotoData = await buscarFotoIA(servico, Math.floor(Math.random()*5), formato);
     if(fotoData) {
-      // Apply logo overlay via canvas
-      const canvasUrl = await aplicarLogoCanvas(fotoData, servico, '');
-      previewImageUrl = canvasUrl;
-      imgBox.innerHTML = `<img src="${canvasUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
-      btnBaixar.style.display = 'inline-flex';
-      status.textContent = '✅ Preview gerado com logo LCS!';
+      canvasUrl = await aplicarLogoCanvas(fotoData, servico, '');
     } else {
-      throw new Error('Erro ao gerar imagem');
+      // Fallback to canvas
+      canvasUrl = await gerarImagemCanvas(servico, 'credibilidade', '', formato, 1);
     }
+    previewImageUrl = canvasUrl;
+    imgBox.innerHTML = `<img src="${canvasUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+    btnBaixar.style.display = 'inline-flex';
+    status.textContent = '✅ Preview gerado!';
   } catch(e) {
     imgBox.innerHTML = '<span style="font-size:24px;">⚠️</span>';
     status.textContent = '❌ Erro: ' + e.message;
