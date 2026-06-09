@@ -1141,7 +1141,24 @@ async function renderTemas() {
     html = '<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:40px;">Nenhuma foto salva ainda.<br><br>Vá para <strong>Editor de Fotos</strong>, carregue suas fotos e clique em ✨ Aplicar Estilo em Todas.</p>';
   }
 
+  // Aviso se há fotos antigas (sem imgFull original) que precisam ser reprocessadas
+  const fotosLegadas = fotosReais.filter(f => !f.imgFull && !f.imgEstilo);
+  if(fotosLegadas.length > 0) {
+    html = `<div style="grid-column:1/-1;margin-bottom:16px;padding:12px 16px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);border-radius:10px;font-size:13px;">
+      ⚠️ <strong>${fotosLegadas.length} foto(s)</strong> do banco anterior precisam ser reprocessadas para remover o texto duplo.
+      <button class="btn btn-secondary btn-sm" style="margin-left:12px;font-size:11px;" onclick="limparBancoLegado()">🗑️ Limpar banco antigo</button>
+    </div>` + html;
+  }
+
   el.innerHTML = html;
+}
+
+async function limparBancoLegado() {
+  const fotos = await idbListarFotos();
+  const legadas = fotos.filter(f => !f.imgFull && !f.imgEstilo);
+  for(const f of legadas) await idbDeletarFoto(f.id);
+  showToast(`🗑️ ${legadas.length} foto(s) antigas removidas. Reprocesse no Editor!`);
+  renderTemas();
 }
 
 async function usarFotoTema(id) {
@@ -1659,7 +1676,8 @@ async function gerarImagem30(servico, tema, aspecto='1:1', formato='post', diaId
     const match = fotos.filter(f => f.servico === servico);
     const pool = match.length > 0 ? match : fotos;
     const foto = pool[diaIdx % pool.length];
-    const imgSrc = foto.imgFull || foto.thumb;
+    // imgFull = original sem texto; imgEstilo = com estilo do editor
+    const imgSrc = foto.imgFull || foto.imgEstilo || foto.thumb;
     if(imgSrc) return await aplicarLogoCanvas(imgSrc, servico, '');
   }
   // Fallback canvas sem foto real
@@ -1777,7 +1795,9 @@ async function buscarFotoIA(servico, dia, formato) {
       const pool = match.length > 0 ? match : todasFotos;
       const foto = pool[dia % pool.length];
       // Retornar imgFull (alta qualidade) do IDB
+      // imgFull = foto original SEM texto — aplicarLogoCanvas coloca só header/footer
       if(foto.imgFull) return foto.imgFull;
+      if(foto.imgEstilo) return foto.imgEstilo;
       if(foto.thumb) return foto.thumb;
     }
   } catch(e) { console.warn('IDB buscarFoto:', e); }
@@ -2476,13 +2496,15 @@ async function aplicarEstiloTodas() {
     foto.servico = r.analise.servico || 'geral';
 
     if(!nomesExistentes.has(foto.nome)) {
+      // thumb da foto COM estilo (para preview no banco)
       const thumb = await comprimirParaThumb(r.url, 200);
       const id = Date.now() + i;
       await idbSalvarFoto({
         id,
         titulo: r.analise.titulo,
         subtitulo: r.analise.subtitulo,
-        imgFull: r.url,
+        imgFull: fotosEditor[r.idx].src,  // ← foto ORIGINAL sem texto
+        imgEstilo: r.url,                  // ← foto com estilo (para baixar/preview)
         thumb,
         servico: r.analise.servico || 'geral',
         nome: foto.nome,
@@ -2622,14 +2644,16 @@ async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverrid
 async function salvarNoBancoTemas(idx) {
   const foto = fotosEditor[idx];
   if(!foto) return;
-  const imgFull = foto.blobSrc || foto.src;
-  const thumb = await comprimirParaThumb(imgFull, 200);
+  const imgEstilo = foto.blobSrc;          // foto COM estilo/texto
+  const imgFull = foto.src;               // foto ORIGINAL sem texto
+  const thumb = await comprimirParaThumb(imgEstilo || imgFull, 200);
   const id = Date.now();
   await idbSalvarFoto({
     id,
     titulo: foto.titulo || 'Foto LCS',
     subtitulo: foto.subtitulo || '',
     imgFull,
+    imgEstilo,
     thumb,
     servico: foto.servico || 'geral',
     nome: foto.nome || `foto_${id}.jpg`,
