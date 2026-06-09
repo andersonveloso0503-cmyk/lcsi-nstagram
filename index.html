@@ -1736,13 +1736,19 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
 async function buscarFotoIA(servico, dia, formato) {
   // Search Banco de Temas by matching service category
   const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
-  const fotosReais = temas.filter(t => t.tipo === 'foto_real' && t.imgSrc);
+  const fotosReais = temas.filter(t => t.tipo === 'foto_real');
   
   if(fotosReais.length > 0) {
-    // First try exact category match
-    const match = fotosReais.filter(f => f.servico === servico || f.servico === 'geral');
+    const match = fotosReais.filter(f => f.servico === servico);
     const pool = match.length > 0 ? match : fotosReais;
     const foto = pool[dia % pool.length];
+    
+    // Try full image from fotosEditor memory first
+    if(foto?.editorIdx !== undefined && fotosEditor[foto.editorIdx]?.blobSrc) {
+      return fotosEditor[foto.editorIdx].blobSrc;
+    }
+    // Fallback to stored full image or thumbnail
+    if(foto?.imgFull) return foto.imgFull;
     if(foto?.imgSrc) return foto.imgSrc;
   }
   
@@ -2183,6 +2189,22 @@ function initEditor() {
   }
 }
 
+async function comprimirParaThumb(base64Src, maxSize) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      const scale = Math.min(maxSize/img.width, maxSize/img.height, 1);
+      cv.width = img.width * scale;
+      cv.height = img.height * scale;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      resolve(cv.toDataURL('image/jpeg', 0.6));
+    };
+    img.onerror = () => resolve(base64Src);
+    img.src = base64Src;
+  });
+}
+
 async function salvarFotoBlob(base64Src, nome) {
   try {
     const res = await fetch('/api/upload', {
@@ -2324,23 +2346,33 @@ async function aplicarEstiloTodas() {
     foto.subtitulo = r.analise.subtitulo;
     foto.servico = r.analise.servico || 'geral';
     
-    // Check if already saved (avoid duplicates)
+    // Compress image to thumbnail for localStorage (max 200px)
+    const thumb = await comprimirParaThumb(r.url, 200);
+    
     const exists = temas.find(t => t.nome === foto.nome);
     if(!exists) {
       temas.unshift({
         id: Date.now() + i,
         titulo: r.analise.titulo,
         subtitulo: r.analise.subtitulo,
-        imgSrc: r.url,
+        imgSrc: thumb,      // compressed thumbnail
+        imgFull: r.url,     // full image kept in memory only
         servico: r.analise.servico || 'geral',
         nome: foto.nome,
         tipo: 'foto_real',
+        editorIdx: r.idx,
         createdAt: new Date().toISOString()
       });
     }
   }
   
-  localStorage.setItem('lcs_banco_temas', JSON.stringify(temas));
+  try {
+    localStorage.setItem('lcs_banco_temas', JSON.stringify(temas));
+  } catch(e) {
+    // localStorage full - keep only thumbnails
+    const compact = temas.map(t => ({...t, imgFull: undefined}));
+    localStorage.setItem('lcs_banco_temas', JSON.stringify(compact));
+  }
   showToast(`✅ ${resultados.length} foto(s) salvas no Banco de Temas!`);
   renderEditorGrid(resultados);
 }
