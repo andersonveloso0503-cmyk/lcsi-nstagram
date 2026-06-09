@@ -706,6 +706,13 @@
 
   <!-- TEMAS -->
   <div class="section" id="sec-temas">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div>
+        <h2 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--white);margin:0;">🎯 Banco de Temas</h2>
+        <p style="font-size:12px;color:var(--muted);margin:2px 0 0;">Suas fotos processadas prontas para usar</p>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="limparTodoIDB()" style="font-size:11px;border-color:rgba(239,68,68,0.4);color:var(--red);">🗑️ Limpar banco e reprocessar</button>
+    </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" id="banco-temas"></div>
   </div>
 
@@ -1144,6 +1151,22 @@ async function renderTemas() {
   }
 
   el.innerHTML = html;
+}
+
+async function limparTodoIDB() {
+  if(!confirm('Isso vai apagar TODAS as fotos do banco. Você precisará reprocessar no Editor. Continuar?')) return;
+  try {
+    const fotos = await idbListarFotos();
+    for(const f of fotos) await idbDeletarFoto(f.id);
+    // Resetar flags
+    localStorage.removeItem('lcs_idb_v');
+    localStorage.removeItem('lcs_idb_migrated');
+    showToast('✅ Banco limpo! Vá no Editor e reprocesse suas fotos.');
+    renderTemas();
+    // Atualizar contador no editor
+    const uploadP = document.getElementById('upload-area')?.querySelector('p');
+    if(uploadP) uploadP.textContent = 'Arraste fotos aqui ou clique para selecionar';
+  } catch(e) { showToast('❌ Erro: ' + e.message); }
 }
 
 async function limparBancoLegado() {
