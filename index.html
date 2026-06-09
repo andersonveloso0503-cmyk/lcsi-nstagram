@@ -1083,35 +1083,46 @@ function mudaMes(dir) {
 }
 
 // BANCO DE TEMAS
-function renderTemas() {
-  const bancoDB = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
-  const fotosReais = bancoDB.filter(t => t.tipo === 'foto_real');
-  const temasBase = bancoDB.filter(t => t.tipo !== 'foto_real');
+async function renderTemas() {
+  const el = document.getElementById('banco-temas');
+  el.innerHTML = '<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:40px;">Carregando...</p>';
+
+  // Carregar fotos do IndexedDB
+  let fotosReais = [];
+  try { fotosReais = await idbListarFotos(); } catch(e) {}
+  fotosReais.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+
+  // Temas de texto do localStorage
+  const temasBase = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]').filter(t => t.tipo !== 'foto_real');
   const todosBase = [...temasBase, ...(window.TEMAS_BASE || [])];
 
   let html = '';
 
-  // Show user photos first
   if(fotosReais.length > 0) {
     html += `<div style="grid-column:1/-1;margin-bottom:8px;">
       <h3 style="font-size:14px;margin:0 0 12px;">📸 Minhas Fotos (${fotosReais.length})</h3>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-        ${fotosReais.map(f => `
-          <div class="card" style="padding:10px;">
-            <img src="${f.imgSrc}" style="width:100%;border-radius:8px;margin-bottom:8px;aspect-ratio:1;object-fit:cover;">
-            <p style="font-size:11px;font-weight:500;color:var(--text);margin:0 0 2px;">${f.titulo||''}</p>
-            <p style="font-size:10px;color:var(--muted);margin:0 0 6px;">${f.servico||'geral'}</p>
+        ${fotosReais.map(f => {
+          // Usar thumb do IDB — sempre disponível pois foi salvo como base64 pequeno
+          const imgSrc = f.thumb || f.imgFull || '';
+          return `
+          <div class="card" style="padding:10px;" id="foto-card-${f.id}">
+            ${imgSrc
+              ? `<img src="${imgSrc}" style="width:100%;border-radius:8px;margin-bottom:8px;aspect-ratio:1;object-fit:cover;">`
+              : `<div style="width:100%;aspect-ratio:1;border-radius:8px;margin-bottom:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px;">📸</div>`
+            }
+            <p style="font-size:11px;font-weight:600;color:var(--text);margin:0 0 2px;line-height:1.3;">${f.titulo||'Foto LCS'}</p>
+            <p style="font-size:10px;color:var(--accent2);margin:0 0 6px;text-transform:capitalize;">${f.servico||'geral'}</p>
             <div style="display:flex;gap:4px;">
-              <button class="btn btn-primary btn-sm" style="flex:1;font-size:10px;" onclick="usarFotoTema('${f.id}')">✨ Usar</button>
-              <button class="btn btn-secondary btn-sm" style="font-size:10px;" onclick="deletarDobancoTemas('${f.id}')">🗑️</button>
+              <button class="btn btn-primary btn-sm" style="flex:1;font-size:10px;" onclick="usarFotoTema(${f.id})">✨ Usar</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:10px;" onclick="deletarDobancoTemas(${f.id})">🗑️</button>
             </div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   }
 
-  // Show base themes
   if(todosBase.length > 0) {
     html += `<div style="grid-column:1/-1;margin-bottom:8px;margin-top:${fotosReais.length>0?'16px':'0'};">
       <h3 style="font-size:14px;margin:0 0 12px;">🎯 Temas de Conteúdo</h3>
@@ -1127,29 +1138,56 @@ function renderTemas() {
   }
 
   if(!fotosReais.length && !todosBase.length) {
-    html = '<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:40px;">Nenhum tema salvo ainda. Adicione fotos no Editor!</p>';
+    html = '<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:40px;">Nenhuma foto salva ainda.<br><br>Vá para <strong>Editor de Fotos</strong>, carregue suas fotos e clique em ✨ Aplicar Estilo em Todas.</p>';
   }
 
-  document.getElementById('banco-temas').innerHTML = html;
+  el.innerHTML = html;
 }
 
-function usarFotoTema(id) {
-  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
-  const foto = temas.find(t => String(t.id) === String(id));
+async function usarFotoTema(id) {
+  const foto = await idbGetFoto(id);
   if(!foto) return;
-  // Switch to generator and pre-select service
+  // Guardar foto selecionada globalmente para sincronizar com legenda
+  window._fotoSelecionada = foto;
   switchTab('gerador', document.querySelector('.tab'));
   if(foto.servico) {
     const sel = document.getElementById('servico');
     if(sel) sel.value = foto.servico;
   }
-  showToast(`✅ Foto de ${foto.servico} selecionada — gere a legenda!`);
+  // Mostrar preview da foto selecionada no gerador
+  mostrarFotoSelecionadaNoGerador(foto);
+  showToast(`✅ Foto "${foto.titulo}" selecionada — gere a legenda!`);
 }
 
-function deletarDobancoTemas(id) {
-  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
-  const novosTemas = temas.filter(t => String(t.id) !== String(id));
-  localStorage.setItem('lcs_banco_temas', JSON.stringify(novosTemas));
+function mostrarFotoSelecionadaNoGerador(foto) {
+  // Cria ou atualiza preview da foto no painel de resultado
+  let preview = document.getElementById('foto-preview-gerador');
+  if(!preview) {
+    const target = document.getElementById('legenda-output')?.parentElement;
+    if(!target) return;
+    preview = document.createElement('div');
+    preview.id = 'foto-preview-gerador';
+    preview.style.cssText = 'margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid var(--border);position:relative;';
+    target.insertBefore(preview, target.firstChild);
+  }
+  const imgSrc = foto.thumb || foto.imgFull || '';
+  preview.innerHTML = imgSrc
+    ? `<img src="${imgSrc}" style="width:100%;max-height:180px;object-fit:cover;display:block;">
+       <div style="padding:8px 10px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;">
+         <span style="font-size:11px;color:var(--text);font-weight:500;">📸 ${foto.titulo}</span>
+         <button class="btn btn-secondary btn-sm" style="font-size:10px;" onclick="limparFotoSelecionada()">✕</button>
+       </div>`
+    : '';
+}
+
+function limparFotoSelecionada() {
+  window._fotoSelecionada = null;
+  const preview = document.getElementById('foto-preview-gerador');
+  if(preview) preview.innerHTML = '';
+}
+
+async function deletarDobancoTemas(id) {
+  await idbDeletarFoto(id);
   showToast('🗑️ Foto removida do banco!');
   renderTemas();
 }
@@ -1734,25 +1772,32 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
 }
 
 async function buscarFotoIA(servico, dia, formato) {
-  // Search Banco de Temas by matching service category
-  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
-  const fotosReais = temas.filter(t => t.tipo === 'foto_real');
-  
-  if(fotosReais.length > 0) {
-    const match = fotosReais.filter(f => f.servico === servico);
-    const pool = match.length > 0 ? match : fotosReais;
-    const foto = pool[dia % pool.length];
-    
-    // Try full image from fotosEditor memory first
-    if(foto?.editorIdx !== undefined && fotosEditor[foto.editorIdx]?.blobSrc) {
-      return fotosEditor[foto.editorIdx].blobSrc;
-    }
-    // Fallback to stored full image or thumbnail
-    if(foto?.imgFull) return foto.imgFull;
-    if(foto?.imgSrc) return foto.imgSrc;
+  // 1. Prioridade: foto manualmente selecionada pelo usuário
+  if(window._fotoSelecionada) {
+    const f = window._fotoSelecionada;
+    return f.imgFull || f.thumb || null;
   }
-  
-  // Fallback to Pexels
+
+  // 2. Buscar do IndexedDB por serviço correspondente
+  try {
+    const todasFotos = await idbListarFotos();
+    if(todasFotos.length > 0) {
+      const match = todasFotos.filter(f => f.servico === servico);
+      const pool = match.length > 0 ? match : todasFotos;
+      const foto = pool[dia % pool.length];
+      // Retornar imgFull (alta qualidade) do IDB
+      if(foto.imgFull) return foto.imgFull;
+      if(foto.thumb) return foto.thumb;
+    }
+  } catch(e) { console.warn('IDB buscarFoto:', e); }
+
+  // 3. Fallback: tentar fotosEditor em memória
+  const editorMatch = fotosEditor.find(f => f.servico === servico && f.blobSrc);
+  if(editorMatch) return editorMatch.blobSrc;
+  const anyEditor = fotosEditor.find(f => f.blobSrc);
+  if(anyEditor) return anyEditor.blobSrc;
+
+  // 4. Fallback Pexels
   try {
     const res = await fetch('/api/pexels', {
       method: 'POST',
@@ -2161,6 +2206,97 @@ async function enviarBufferTodos() {
 
 
 // =============================================
+// INDEXEDDB — STORAGE DE FOTOS SEM LIMITE
+// =============================================
+const IDB_NAME = 'lcs_fotos_db';
+const IDB_STORE = 'fotos';
+let _idb = null;
+
+function abrirIDB() {
+  if (_idb) return Promise.resolve(_idb);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+        store.createIndex('servico', 'servico', { unique: false });
+      }
+    };
+    req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbSalvarFoto(foto) {
+  // foto = { id, titulo, subtitulo, servico, nome, imgFull (base64), thumb (base64 200px), tipo, createdAt }
+  const db = await abrirIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(foto);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbGetFoto(id) {
+  const db = await abrirIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbListarFotos() {
+  const db = await abrirIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbDeletarFoto(id) {
+  const db = await abrirIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// Migrar dados antigos do localStorage para IndexedDB (roda 1x)
+async function migrarLocalStorageParaIDB() {
+  const flag = localStorage.getItem('lcs_idb_migrated');
+  if (flag) return;
+  try {
+    const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
+    const fotosReais = temas.filter(t => t.tipo === 'foto_real' && (t.imgSrc || t.imgFull));
+    for (const f of fotosReais) {
+      await idbSalvarFoto({
+        id: f.id,
+        titulo: f.titulo || 'Foto LCS',
+        subtitulo: f.subtitulo || '',
+        servico: f.servico || 'geral',
+        nome: f.nome || 'foto.jpg',
+        imgFull: f.imgFull || f.imgSrc || '',
+        thumb: f.imgSrc || f.imgFull || '',
+        tipo: 'foto_real',
+        createdAt: f.createdAt || new Date().toISOString()
+      });
+    }
+    // Limpar fotos reais do localStorage, manter só temas de texto
+    const temasTexto = temas.filter(t => t.tipo !== 'foto_real');
+    localStorage.setItem('lcs_banco_temas', JSON.stringify(temasTexto));
+    localStorage.setItem('lcs_idb_migrated', '1');
+  } catch(e) { console.warn('Migração IDB:', e); }
+}
+
+// =============================================
 // EDITOR DE FOTOS
 // =============================================
 let fotosEditor = [];
@@ -2174,19 +2310,19 @@ const ESTILOS = {
   minimal:    { cor1:'rgba(0,0,0,0.85)',        cor2:'rgba(0,0,0,0.9)',        filtro:'rgba(0,0,0,0.1)',       nome:'Minimalista' }
 };
 
-function initEditor() {
+async function initEditor() {
   document.getElementById('editor-opacity').oninput = function() {
     document.getElementById('opacity-label').textContent = this.value + '%';
     if(fotosEditor.length) aplicarEstiloTodas();
   };
-  
-  // Load and show saved photos count
-  const saved = carregarFotosSalvas();
-  if(saved.length > 0) {
-    showToast(`📸 ${saved.length} foto(s) salvas disponíveis para os 30 dias!`);
-    document.getElementById('upload-area').querySelector('p').textContent = 
-      `${saved.length} foto(s) salvas — arraste mais para adicionar`;
-  }
+  await migrarLocalStorageParaIDB();
+  try {
+    const fotos = await idbListarFotos();
+    if(fotos.length > 0) {
+      document.getElementById('upload-area').querySelector('p').textContent =
+        `${fotos.length} foto(s) no banco — arraste mais para adicionar`;
+    }
+  } catch(e) {}
 }
 
 async function comprimirParaThumb(base64Src, maxSize) {
@@ -2331,13 +2467,15 @@ async function aplicarEstiloTodas() {
       </div>
     `).join('') + (i < fotosEditor.length-1 ? `<div class="card" style="padding:12px;display:flex;align-items:center;justify-content:center;min-height:200px;"><span class="spinner" style="width:24px;height:24px;border-width:3px;"></span></div>` : '');
   }
-  
+
   showToast(`🎨 ${resultados.length} foto(s) estilizadas com IA!`);
-  
-  // Auto-save all processed photos to Banco de Temas
+
+  // Auto-save all processed photos to IndexedDB (sem limite de tamanho)
   showToast('💾 Salvando no Banco de Temas...');
-  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
-  
+
+  const fotosExistentes = await idbListarFotos();
+  const nomesExistentes = new Set(fotosExistentes.map(f => f.nome));
+
   for(let i = 0; i < resultados.length; i++) {
     const r = resultados[i];
     const foto = fotosEditor[r.idx];
@@ -2345,34 +2483,26 @@ async function aplicarEstiloTodas() {
     foto.titulo = r.analise.titulo;
     foto.subtitulo = r.analise.subtitulo;
     foto.servico = r.analise.servico || 'geral';
-    
-    // Compress image to thumbnail for localStorage (max 200px)
-    const thumb = await comprimirParaThumb(r.url, 200);
-    
-    const exists = temas.find(t => t.nome === foto.nome);
-    if(!exists) {
-      temas.unshift({
-        id: Date.now() + i,
+
+    if(!nomesExistentes.has(foto.nome)) {
+      const thumb = await comprimirParaThumb(r.url, 200);
+      const id = Date.now() + i;
+      await idbSalvarFoto({
+        id,
         titulo: r.analise.titulo,
         subtitulo: r.analise.subtitulo,
-        imgSrc: thumb,      // compressed thumbnail
-        imgFull: r.url,     // full image kept in memory only
+        imgFull: r.url,
+        thumb,
         servico: r.analise.servico || 'geral',
         nome: foto.nome,
         tipo: 'foto_real',
         editorIdx: r.idx,
         createdAt: new Date().toISOString()
       });
+      foto.idbId = id;
     }
   }
-  
-  try {
-    localStorage.setItem('lcs_banco_temas', JSON.stringify(temas));
-  } catch(e) {
-    // localStorage full - keep only thumbnails
-    const compact = temas.map(t => ({...t, imgFull: undefined}));
-    localStorage.setItem('lcs_banco_temas', JSON.stringify(compact));
-  }
+
   showToast(`✅ ${resultados.length} foto(s) salvas no Banco de Temas!`);
   renderEditorGrid(resultados);
 }
@@ -2497,43 +2627,30 @@ async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverrid
   });
 }
 
-function carregarFotosSalvas() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('lcs_fotos') || '[]');
-    return saved;
-  } catch(e) { return []; }
-}
-
-function salvarNoBancoTemas(idx) {
+async function salvarNoBancoTemas(idx) {
   const foto = fotosEditor[idx];
   if(!foto) return;
-  
-  const temas = JSON.parse(localStorage.getItem('lcs_banco_temas') || '[]');
-  
-  const novoTema = {
-    id: Date.now(),
+  const imgFull = foto.blobSrc || foto.src;
+  const thumb = await comprimirParaThumb(imgFull, 200);
+  const id = Date.now();
+  await idbSalvarFoto({
+    id,
     titulo: foto.titulo || 'Foto LCS',
     subtitulo: foto.subtitulo || '',
-    imgUrl: foto.blobUrl || foto.blobSrc || foto.src,
+    imgFull,
+    thumb,
     servico: foto.servico || 'geral',
+    nome: foto.nome || `foto_${id}.jpg`,
     tipo: 'foto_real',
     createdAt: new Date().toISOString()
-  };
-  
-  temas.unshift(novoTema);
-  localStorage.setItem('lcs_banco_temas', JSON.stringify(temas));
+  });
+  foto.idbId = id;
   showToast('✅ Foto salva no Banco de Temas!');
-  
-  // Re-render if on temas tab
-  if(document.getElementById('sec-temas').style.display !== 'none') {
-    renderTemas();
-  }
+  if(document.getElementById('sec-temas')?.style.display !== 'none') renderTemas();
 }
 
 function deletarFotoSalva(idx) {
   fotosEditor.splice(idx, 1);
-  const saved = carregarFotosSalvas().filter((_, i) => i !== idx);
-  localStorage.setItem('lcs_fotos', JSON.stringify(saved));
   showToast('🗑️ Foto removida!');
   aplicarEstiloTodas();
 }
@@ -2561,9 +2678,9 @@ async function enviarFotoBuffer(imgUrl) {
 }
 
 async function gerarTrintaComMinhasFotos() {
-  const saved = carregarFotosSalvas();
-  if(!saved.length && !fotosEditor.filter(f=>f.blobUrl).length) {
-    showToast('⚠️ Processe as fotos primeiro!'); return;
+  const saved = await idbListarFotos();
+  if(!saved.length && !fotosEditor.filter(f=>f.blobSrc).length) {
+    showToast('⚠️ Adicione fotos no Editor primeiro!'); return;
   }
   
   // Switch to 30 days tab
