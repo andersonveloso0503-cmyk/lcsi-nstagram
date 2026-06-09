@@ -2142,7 +2142,7 @@ async function idbDeletarFoto(id) {
 async function migrarLocalStorageParaIDB() {
   // v2: limpar fotos antigas que tinham texto embutido (imgFull === imgEstilo ou sem imgFull separado)
   const flagV = localStorage.getItem('lcs_idb_v');
-  if(flagV !== '3') {
+  if(flagV !== 'v44clean') {
     // v3: limpar TODO o IDB — fotos antigas tinham texto embutido na imagem
     // Agora imgFull = foto original SEM texto; campo novo que versões antigas não tinham
     try {
@@ -2155,7 +2155,7 @@ async function migrarLocalStorageParaIDB() {
         showToast('🔄 ' + legadas.length + ' foto(s) antigas removidas — reprocesse no Editor!');
       }
     } catch(e) {}
-    localStorage.setItem('lcs_idb_v', '3');
+    localStorage.setItem('lcs_idb_v', 'v44clean');
   }
 
   const flag = localStorage.getItem('lcs_idb_migrated');
@@ -2453,12 +2453,6 @@ async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverrid
       ctx.fillStyle = gradTop;
       ctx.fillRect(0,0,W,H*0.22);
 
-      const gradBot = ctx.createLinearGradient(0,H*0.82,0,H);
-      gradBot.addColorStop(0, 'rgba(0,0,0,0)');
-      gradBot.addColorStop(1, `rgba(0,0,0,${opacity*0.7})`);
-      ctx.fillStyle = gradBot;
-      ctx.fillRect(0,H*0.82,W,H*0.18);
-
       // TOP BAR — vermelho LCS (só logo + nome empresa, UMA linha de cada)
       const BAR = Math.round(H*0.082);
       ctx.fillStyle = E.cor1;
@@ -2474,23 +2468,7 @@ async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverrid
       ctx.fillText('Limpeza  •  Portaria  •  Facilities', BAR+6, Math.round(BAR*0.82));
       ctx.shadowBlur = 0;
 
-      // BOTTOM BAR — contato
-      const BBOT = Math.round(H*0.082);
-      ctx.fillStyle = E.cor2;
-      ctx.fillRect(0,H-BBOT,W,BBOT);
-      ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.round(W*0.024)}px Arial`;
-      ctx.textAlign = 'left';
-      ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 2;
-      ctx.fillText('📱 (51) 99889-3033', W*0.025, H-BBOT+Math.round(BBOT*0.48));
-      ctx.textAlign = 'right';
-      ctx.fillText('@lcs_terceirizacao', W*0.975, H-BBOT+Math.round(BBOT*0.48));
-      ctx.textAlign = 'center';
-      ctx.font = `${Math.round(W*0.017)}px Arial`;
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.fillText('lcsterceirizacaors.com.br', W/2, H-BBOT+Math.round(BBOT*0.84));
-      ctx.shadowBlur = 0;
-
+      // SEM bottom bar aqui — adicionado pelo aplicarLogoCanvas para não duplicar
       resolve(cv.toDataURL('image/jpeg', 0.95));
     };
     img.src = fotoSrc;
