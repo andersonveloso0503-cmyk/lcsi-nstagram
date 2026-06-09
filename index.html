@@ -669,14 +669,7 @@
             <option value="minimal">◻️ Minimalista</option>
           </select>
         </div>
-        <div>
-          <label>Texto Principal</label>
-          <input type="text" id="editor-titulo" placeholder="Ex: Limpeza Profissional" value="Limpeza Profissional">
-        </div>
-        <div>
-          <label>Subtítulo</label>
-          <input type="text" id="editor-subtitulo" placeholder="Ex: Qualidade garantida!" value="Qualidade garantida!">
-        </div>
+        <!-- Texto Principal e Subtítulo removidos — gerados automaticamente pela IA por foto -->
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
@@ -2285,6 +2278,23 @@ async function idbDeletarFoto(id) {
 
 // Migrar dados antigos do localStorage para IndexedDB (roda 1x)
 async function migrarLocalStorageParaIDB() {
+  // v2: limpar fotos antigas que tinham texto embutido (imgFull === imgEstilo ou sem imgFull separado)
+  const flagV = localStorage.getItem('lcs_idb_v');
+  if(flagV !== '2') {
+    try {
+      const todas = await idbListarFotos();
+      // Fotos legadas: não têm imgFull separado (era a mesma coisa que imgEstilo)
+      // Identificamos pelo fato de não terem o campo imgFull com foto original
+      // Vamos limpar tudo e pedir reprocessamento
+      if(todas.length > 0 && todas.some(f => !f.imgFull || f.imgFull === f.imgEstilo)) {
+        for(const f of todas) await idbDeletarFoto(f.id);
+        localStorage.removeItem('lcs_idb_migrated');
+        showToast('🔄 Banco atualizado! Reprocesse suas fotos no Editor.');
+      }
+    } catch(e) {}
+    localStorage.setItem('lcs_idb_v', '2');
+  }
+
   const flag = localStorage.getItem('lcs_idb_migrated');
   if (flag) return;
   try {
@@ -2443,7 +2453,6 @@ Regras:
 async function aplicarEstiloTodas() {
   if(!fotosEditor.length) { showToast('⚠️ Carregue fotos primeiro!'); return; }
   const grid = document.getElementById('editor-grid');
-  const useAI = document.getElementById('editor-titulo').value === '' || document.getElementById('editor-titulo').value === 'Limpeza Profissional';
   
   grid.innerHTML = `<p style="color:var(--muted);text-align:center;grid-column:1/-1;padding:20px;">
     <span class="spinner" style="display:inline-block;width:20px;height:20px;border-width:2px;vertical-align:middle;margin-right:8px;"></span>
