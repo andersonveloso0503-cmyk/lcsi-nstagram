@@ -1641,22 +1641,41 @@ async function gerarLegenda30(dia, formato='post') {
   return {legenda, tags};
 }
 
-let _imgSeedCounter = 1000;
-async function gerarImagem30(servico, tema, aspecto='1:1', formato='post') {
-  _imgSeedCounter += 137;
-  // Use canvas directly - fast and reliable
-  return await gerarImagemCanvas(servico, tema, '', formato, _imgSeedCounter % 30 + 1);
+// Cache das fotos do IDB para usar nos 30 dias
+let _fotosIDBCache = null;
+async function _getFotosIDB() {
+  if(!_fotosIDBCache) {
+    try { _fotosIDBCache = await idbListarFotos(); } catch(e) { _fotosIDBCache = []; }
+  }
+  return _fotosIDBCache;
+}
+// Chamar antes de gerar 30 dias para garantir cache atualizado
+async function _refreshFotosIDB() { _fotosIDBCache = null; return _getFotosIDB(); }
+
+async function gerarImagem30(servico, tema, aspecto='1:1', formato='post', diaIdx=0) {
+  const fotos = await _getFotosIDB();
+  if(fotos.length > 0) {
+    // Rotar fotos: primeiro tenta by servico, senão qualquer uma — usando diaIdx para variar
+    const match = fotos.filter(f => f.servico === servico);
+    const pool = match.length > 0 ? match : fotos;
+    const foto = pool[diaIdx % pool.length];
+    const imgSrc = foto.imgFull || foto.thumb;
+    if(imgSrc) return await aplicarLogoCanvas(imgSrc, servico, '');
+  }
+  // Fallback canvas sem foto real
+  return await gerarImagemCanvas(servico, tema, '', formato, diaIdx + 1);
 }
 
 const FORMATO_MISTO = ['post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories','post','post','reels','post','stories'];
 
 async function carregarImagensProgressivas(total) {
-  // Generate canvas images for all posts - no external API needed
+  await _refreshFotosIDB(); // garantir fotos atualizadas
   for(let i = 0; i < trintaPosts.length; i++) {
     const p = trintaPosts[i];
-    const canvasUrl = await gerarImagemCanvas(p.servico, p.tema, p.legenda, p.formato||'post', p.dia);
+    // gerarImagem30 usa IDB com rotação por diaIdx — foto diferente a cada post
+    const canvasUrl = await gerarImagem30(p.servico, p.tema, '1:1', p.formato||'post', i);
     trintaPosts[i].imgUrl = canvasUrl;
-    if(i % 3 === 0) renderTrintaGrid(); // update grid every 3 posts
+    if(i % 3 === 0) renderTrintaGrid();
   }
   renderTrintaGrid();
   document.getElementById('trinta-progress-label').textContent = `✅ Tudo pronto! 30 imagens geradas.`;
@@ -1680,91 +1699,63 @@ const _logoCache = new Image();
 _logoCache.src = LOGO_B64;
 
 async function aplicarLogoCanvas(fotoData, servico, legenda) {
+  // Aplica SOMENTE o header/footer da LCS sobre a foto real — sem slogan duplicado
   return new Promise((resolve) => {
     const W = 1024, H = 1024;
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
 
-    const slogans = {
-      limpeza: ['AMBIENTES LIMPOS,', 'RESULTADOS REAIS!'],
-      portaria: ['SEGURANÇA E', 'PROFISSIONALISMO!'],
-      facilities: ['MANUTENÇÃO QUE', 'FAZ A DIFERENÇA!'],
-      condominio: ['SEU CONDOMÍNIO', 'EM BOAS MÃOS!'],
-      lojas: ['SUA LOJA MERECE', 'O MELHOR!'],
-      hospitais: ['HIGIENE QUE', 'SALVA VIDAS!'],
-      empresas: ['SUA EMPRESA', 'MAIS PRODUTIVA!'],
-      geral: ['SOLUÇÕES QUE', 'ELEVAM SEU NEGÓCIO!']
-    };
-    const lines = slogans[servico] || slogans.geral;
-
     const img = new Image();
     img.onload = () => {
-      ctx.drawImage(img, 0, 0, W, H);
+      // Foto original em alta qualidade — cobrir todo o canvas
+      const scale = Math.max(W / img.width, H / img.height);
+      const sw = img.width * scale, sh = img.height * scale;
+      ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
 
-      // Dark overlay bottom half
-      const grad = ctx.createLinearGradient(0, H*0.35, 0, H);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(0.4, 'rgba(0,0,0,0.55)');
-      grad.addColorStop(1, 'rgba(0,0,0,0.85)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, W, H);
+      // Gradiente LEVE só no topo e rodapé — não escurecer o centro
+      const gradTop = ctx.createLinearGradient(0, 0, 0, 100);
+      gradTop.addColorStop(0, 'rgba(0,0,0,0.55)');
+      gradTop.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gradTop;
+      ctx.fillRect(0, 0, W, 100);
 
-      // TOP BAR - red
-      ctx.fillStyle = 'rgba(185,28,28,0.92)';
+      const gradBot = ctx.createLinearGradient(0, H - 90, 0, H);
+      gradBot.addColorStop(0, 'rgba(0,0,0,0)');
+      gradBot.addColorStop(1, 'rgba(0,0,0,0.65)');
+      ctx.fillStyle = gradBot;
+      ctx.fillRect(0, H - 90, W, 90);
+
+      // TOP BAR — vermelho LCS
+      ctx.fillStyle = 'rgba(185,28,28,0.93)';
       ctx.fillRect(0, 0, W, 80);
-
-      // Draw logo from cache
-      try { ctx.drawImage(_logoCache, 8, 4, 78, 78); } catch(e) {}
-
-      // Company name
-      ctx.fillStyle = '#ffffff';
+      try { ctx.drawImage(_logoCache, 8, 4, 72, 72); } catch(e) {}
+      ctx.fillStyle = '#fff';
       ctx.font = 'bold 28px Arial';
       ctx.textAlign = 'left';
-      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4;
-      ctx.fillText('LCS Terceirização', 96, 38);
-      ctx.font = '18px Arial';
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.fillText('Limpeza  •  Portaria  •  Facilities', 96, 64);
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 3;
+      ctx.fillText('LCS Terceirização', 92, 36);
+      ctx.font = '17px Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillText('Limpeza  •  Portaria  •  Facilities', 92, 62);
       ctx.shadowBlur = 0;
 
-      // BIG TEXT in the middle - style like the example
+      // BOTTOM BAR — apenas contato
+      ctx.fillStyle = 'rgba(185,28,28,0.93)';
+      ctx.fillRect(0, H - 68, W, 68);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 21px Arial';
       ctx.textAlign = 'left';
-      ctx.shadowColor = 'rgba(0,0,0,0.9)';
-      ctx.shadowBlur = 12;
-      
-      // First line - large white
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold 86px Arial`;
-      ctx.fillText(lines[0], 40, H*0.56);
-
-      // Second line - red accent
-      ctx.fillStyle = '#ef4444';
-      ctx.font = `bold 86px Arial`;
-      ctx.fillText(lines[1], 40, H*0.56 + 96);
-      ctx.shadowBlur = 0;
-
-      // Tagline below
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.font = '22px Arial';
-      ctx.fillText('Qualidade • Confiança • Profissionalismo', 40, H*0.56 + 148);
-
-      // BOTTOM BAR
-      ctx.fillStyle = 'rgba(185,28,28,0.92)';
-      ctx.fillRect(0, H - 72, W, 72);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 22px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillText('📱 (51) 99889-3033', 20, H - 38);
+      ctx.fillText('📱 (51) 99889-3033', 18, H - 36);
       ctx.textAlign = 'right';
-      ctx.font = 'bold 20px Arial';
-      ctx.fillText('@lcs_terceirizacao', W - 20, H - 38);
+      ctx.font = 'bold 19px Arial';
+      ctx.fillText('@lcs_terceirizacao', W - 18, H - 36);
       ctx.textAlign = 'center';
-      ctx.font = '15px Arial';
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.fillText('lcsterceirizacaors.com.br', W/2, H - 12);
+      ctx.font = '14px Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillText('lcsterceirizacaors.com.br', W / 2, H - 10);
 
-      resolve(cv.toDataURL('image/jpeg', 0.92));
+      resolve(cv.toDataURL('image/jpeg', 0.95));
     };
     img.onerror = () => resolve(fotoData);
     img.src = fotoData;
@@ -2558,11 +2549,12 @@ async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverrid
       ctx.fillStyle = E.filtro;
       ctx.fillRect(0,0,W,H);
 
-      // Dark gradient
+      // Dark gradient — apenas topo e base, centro fica nítido
       const grad = ctx.createLinearGradient(0,0,0,H);
-      grad.addColorStop(0, `rgba(0,0,0,${opacity*0.7})`);
-      grad.addColorStop(0.4, `rgba(0,0,0,${opacity*0.2})`);
-      grad.addColorStop(1, `rgba(0,0,0,${opacity})`);
+      grad.addColorStop(0, `rgba(0,0,0,${opacity*0.55})`);
+      grad.addColorStop(0.25, `rgba(0,0,0,${opacity*0.08})`);
+      grad.addColorStop(0.6, `rgba(0,0,0,${opacity*0.08})`);
+      grad.addColorStop(1, `rgba(0,0,0,${opacity*0.75})`);
       ctx.fillStyle = grad;
       ctx.fillRect(0,0,W,H);
 
