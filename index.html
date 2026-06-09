@@ -1744,34 +1744,37 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
       ctx.fillStyle = gradBot;
       ctx.fillRect(0, H - 90, W, 90);
 
-      // TOP BAR — vermelho LCS
+      // TOP BAR — vermelho LCS (mesmas proporções do aplicarEstiloFoto)
+      const BAR = Math.round(H * 0.082);
       ctx.fillStyle = 'rgba(185,28,28,0.93)';
-      ctx.fillRect(0, 0, W, 80);
-      try { ctx.drawImage(_logoCache, 8, 4, 72, 72); } catch(e) {}
+      ctx.fillRect(0, 0, W, BAR);
+      try { ctx.drawImage(_logoCache, 6, 4, BAR-8, BAR-8); } catch(e) {}
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 28px Arial';
+      ctx.font = `bold ${Math.round(W*0.028)}px Arial`;
       ctx.textAlign = 'left';
-      ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 3;
-      ctx.fillText('LCS Terceirização', 92, 36);
-      ctx.font = '17px Arial';
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.fillText('Limpeza  •  Portaria  •  Facilities', 92, 62);
+      ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 3;
+      ctx.fillText('LCS Terceirização', BAR+6, Math.round(BAR*0.46));
+      ctx.font = `${Math.round(W*0.017)}px Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      ctx.fillText('Limpeza  •  Portaria  •  Facilities', BAR+6, Math.round(BAR*0.82));
       ctx.shadowBlur = 0;
 
       // BOTTOM BAR — apenas contato
+      const BBOT = Math.round(H * 0.082);
       ctx.fillStyle = 'rgba(185,28,28,0.93)';
-      ctx.fillRect(0, H - 68, W, 68);
+      ctx.fillRect(0, H-BBOT, W, BBOT);
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 21px Arial';
+      ctx.font = `bold ${Math.round(W*0.024)}px Arial`;
       ctx.textAlign = 'left';
-      ctx.fillText('📱 (51) 99889-3033', 18, H - 36);
+      ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 2;
+      ctx.fillText('📱 (51) 99889-3033', W*0.025, H-BBOT+Math.round(BBOT*0.48));
       ctx.textAlign = 'right';
-      ctx.font = 'bold 19px Arial';
-      ctx.fillText('@lcs_terceirizacao', W - 18, H - 36);
+      ctx.fillText('@lcs_terceirizacao', W*0.975, H-BBOT+Math.round(BBOT*0.48));
       ctx.textAlign = 'center';
-      ctx.font = '14px Arial';
+      ctx.font = `${Math.round(W*0.017)}px Arial`;
       ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.fillText('lcsterceirizacaors.com.br', W / 2, H - 10);
+      ctx.fillText('lcsterceirizacaors.com.br', W/2, H-BBOT+Math.round(BBOT*0.84));
+      ctx.shadowBlur = 0;
 
       resolve(cv.toDataURL('image/jpeg', 0.95));
     };
@@ -2546,10 +2549,10 @@ function renderEditorGrid(resultados) {
 }
 
 async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverride) {
+  // Aplica SOMENTE estilo visual (cor, gradiente, header, footer)
+  // SEM nenhum texto no meio — o texto vem da legenda gerada pela IA
   return new Promise(resolve => {
     const estilo = document.getElementById('estilo-visual').value;
-    const titulo = tituloOverride || 'LCS Terceirização';
-    const subtitulo = subtituloOverride || 'Qualidade garantida!';
     const formato = document.getElementById('editor-formato').value;
     const opacity = parseInt(document.getElementById('editor-opacity').value) / 100;
     const E = ESTILOS[estilo] || ESTILOS.lcs_red;
@@ -2562,80 +2565,61 @@ async function aplicarEstiloFoto(fotoSrc, nome, tituloOverride, subtituloOverrid
 
     const img = new Image();
     img.onload = () => {
-      // Draw photo
+      // Foto original em alta qualidade
       const scale = Math.max(W/img.width, H/img.height);
-      const sw = img.width * scale, sh = img.height * scale;
+      const sw = img.width*scale, sh = img.height*scale;
       ctx.drawImage(img, (W-sw)/2, (H-sh)/2, sw, sh);
 
-      // Color filter overlay
+      // Filtro de cor leve da marca
       ctx.fillStyle = E.filtro;
       ctx.fillRect(0,0,W,H);
 
-      // Dark gradient — apenas topo e base, centro fica nítido
-      const grad = ctx.createLinearGradient(0,0,0,H);
-      grad.addColorStop(0, `rgba(0,0,0,${opacity*0.55})`);
-      grad.addColorStop(0.25, `rgba(0,0,0,${opacity*0.08})`);
-      grad.addColorStop(0.6, `rgba(0,0,0,${opacity*0.08})`);
-      grad.addColorStop(1, `rgba(0,0,0,${opacity*0.75})`);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0,0,W,H);
+      // Gradiente suave só no topo e base — NÃO escurecer o centro
+      const gradTop = ctx.createLinearGradient(0,0,0,H*0.22);
+      gradTop.addColorStop(0, `rgba(0,0,0,${opacity*0.6})`);
+      gradTop.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gradTop;
+      ctx.fillRect(0,0,W,H*0.22);
 
-      // Top bar
+      const gradBot = ctx.createLinearGradient(0,H*0.82,0,H);
+      gradBot.addColorStop(0, 'rgba(0,0,0,0)');
+      gradBot.addColorStop(1, `rgba(0,0,0,${opacity*0.7})`);
+      ctx.fillStyle = gradBot;
+      ctx.fillRect(0,H*0.82,W,H*0.18);
+
+      // TOP BAR — vermelho LCS (só logo + nome empresa, UMA linha de cada)
+      const BAR = Math.round(H*0.082);
       ctx.fillStyle = E.cor1;
-      ctx.fillRect(0,0,W,Math.round(H*0.09));
-
-      // Logo
-      try { ctx.drawImage(_logoCache, 8, 6, 72, 72); } catch(e){}
-
-      // Company name
+      ctx.fillRect(0,0,W,BAR);
+      try { ctx.drawImage(_logoCache, 6, 4, BAR-8, BAR-8); } catch(e){}
       ctx.fillStyle = '#fff';
       ctx.font = `bold ${Math.round(W*0.028)}px Arial`;
       ctx.textAlign = 'left';
-      ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
-      ctx.fillText('LCS Terceirização', 92, Math.round(H*0.038));
-      ctx.font = `${Math.round(W*0.018)}px Arial`;
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.fillText('Limpeza  •  Portaria  •  Facilities', 92, Math.round(H*0.062));
+      ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 3;
+      ctx.fillText('LCS Terceirização', BAR+6, Math.round(BAR*0.46));
+      ctx.font = `${Math.round(W*0.017)}px Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      ctx.fillText('Limpeza  •  Portaria  •  Facilities', BAR+6, Math.round(BAR*0.82));
       ctx.shadowBlur = 0;
 
-      // Main title - large
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 12;
-      ctx.font = `bold ${Math.round(W*0.072)}px Arial`;
-      const words = titulo.split(' ');
-      let line='', y=Math.round(H*0.52), lh=Math.round(W*0.082);
-      let lines=[];
-      for(let n=0;n<words.length;n++){
-        const tl=line+words[n]+' ';
-        if(ctx.measureText(tl).width>W*0.85&&n>0){lines.push(line.trim());line=words[n]+' ';}
-        else{line=tl;}
-        if(lines.length>=3) break;
-      }
-      if(line.trim()) lines.push(line.trim());
-      lines.slice(0,3).forEach((l,i)=>ctx.fillText(l,W*0.05,y+i*lh));
-
-      // Subtitle in accent color
-      ctx.fillStyle = '#fca5a5';
-      ctx.font = `bold ${Math.round(W*0.038)}px Arial`;
-      ctx.fillText(subtitulo, W*0.05, y + lines.length*lh + 10);
-      ctx.shadowBlur = 0;
-
-      // Bottom bar
+      // BOTTOM BAR — contato
+      const BBOT = Math.round(H*0.082);
       ctx.fillStyle = E.cor2;
-      ctx.fillRect(0, Math.round(H*0.88), W, Math.round(H*0.12));
+      ctx.fillRect(0,H-BBOT,W,BBOT);
       ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.round(W*0.026)}px Arial`;
+      ctx.font = `bold ${Math.round(W*0.024)}px Arial`;
       ctx.textAlign = 'left';
-      ctx.fillText('📱 (51) 99889-3033', W*0.04, Math.round(H*0.933));
+      ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 2;
+      ctx.fillText('📱 (51) 99889-3033', W*0.025, H-BBOT+Math.round(BBOT*0.48));
       ctx.textAlign = 'right';
-      ctx.fillText('@lcs_terceirizacao', W*0.96, Math.round(H*0.933));
+      ctx.fillText('@lcs_terceirizacao', W*0.975, H-BBOT+Math.round(BBOT*0.48));
       ctx.textAlign = 'center';
-      ctx.font = `${Math.round(W*0.019)}px Arial`;
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.fillText('lcsterceirizacaors.com.br', W/2, Math.round(H*0.973));
+      ctx.font = `${Math.round(W*0.017)}px Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillText('lcsterceirizacaors.com.br', W/2, H-BBOT+Math.round(BBOT*0.84));
+      ctx.shadowBlur = 0;
 
-      resolve(cv.toDataURL('image/jpeg', 0.92));
+      resolve(cv.toDataURL('image/jpeg', 0.95));
     };
     img.src = fotoSrc;
   });
