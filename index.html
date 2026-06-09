@@ -1293,107 +1293,11 @@ async function gerarImagem() {
 
 // CANVAS TEXT OVERLAY
 async function adicionarTextoImagem(imgUrl, servico, legenda, formato) {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const isVertical = formato === 'stories' || formato === 'reels';
-    canvas.width = isVertical ? 576 : 1024;
-    canvas.height = isVertical ? 1024 : 1024;
-    const ctx = canvas.getContext('2d');
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      // Draw base image
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-      // Dark gradient overlay at bottom
-      const grad = ctx.createLinearGradient(0, canvas.height * 0.45, 0, canvas.height);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(0.4, 'rgba(0,20,60,0.7)');
-      grad.addColorStop(1, 'rgba(0,10,40,0.92)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Blue accent bar at bottom
-      ctx.fillStyle = '#1e40af';
-      ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
-
-      // Service label (top left badge)
-      const servicoLabels = {
-        limpeza:'🧹 Limpeza Profissional', portaria:'🏢 Portaria & Recepção',
-        facilities:'🔧 Facilities', condominio:'🏗️ Condomínios',
-        lojas:'🛍️ Lojas & Comércio', hospitais:'🏥 Hospitais & Clínicas',
-        empresas:'🏭 Empresas', geral:'💼 LCS Terceirização'
-      };
-      const servicoLabel = servicoLabels[servico] || 'LCS Terceirização';
-
-      // Badge background
-      ctx.fillStyle = '#dc2626';
-      const badgeW = ctx.measureText(servicoLabel).width + 80;
-      roundRect(ctx, 24, 24, badgeW, 44, 8);
-      ctx.fill();
-
-      // Badge text
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px Arial';
-      ctx.fillText(servicoLabel, 42, 52);
-
-      // Main headline - first sentence of legenda
-      const headline = legenda.split('.')[0].split('!')[0].substring(0, 55);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${canvas.width > 576 ? 42 : 34}px Arial`;
-      wrapText(ctx, headline, 30, canvas.height * 0.58, canvas.width - 60, 50);
-
-      // Slogan
-      ctx.fillStyle = '#93c5fd';
-      ctx.font = `${canvas.width > 576 ? 24 : 20}px Arial`;
-      ctx.fillText('Qualidade • Confiança • Profissionalismo', 30, canvas.height - 90);
-
-      // Bottom bar text
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${canvas.width > 576 ? 22 : 18}px Arial`;
-      ctx.fillText('📱 (51) 99889-3033', 24, canvas.height - 46);
-
-      ctx.textAlign = 'right';
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${canvas.width > 576 ? 20 : 16}px Arial`;
-      ctx.fillText('@lcs_terceirizacao', canvas.width - 24, canvas.height - 46);
-      ctx.textAlign = 'left';
-
-      resolve(canvas.toDataURL('image/jpeg', 0.92));
-    };
-    img.onerror = () => resolve(imgUrl); // fallback to original
-    img.src = imgUrl;
-  });
+  // Aplica header/footer LCS sobre a foto — SEM texto no meio
+  // Chamado apenas no download dos posts dos 30 dias
+  return await aplicarLogoCanvas(imgUrl, servico, legenda);
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x+r, y);
-  ctx.lineTo(x+w-r, y);
-  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
-  ctx.lineTo(x+w, y+h-r);
-  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
-  ctx.lineTo(x+r, y+h);
-  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
-  ctx.lineTo(x, y+r);
-  ctx.quadraticCurveTo(x, y, x+r, y);
-  ctx.closePath();
-}
-
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = text.split(' ');
-  let line = '';
-  for(let n = 0; n < words.length; n++) {
-    const testLine = line + words[n] + ' ';
-    if(ctx.measureText(testLine).width > maxWidth && n > 0) {
-      ctx.fillText(line, x, y);
-      line = words[n] + ' ';
-      y += lineHeight;
-    } else { line = testLine; }
-  }
-  ctx.fillText(line, x, y);
-}
 
 async function enviarBufferUnico() {
   if(!ultimaLegenda || ultimaLegenda.includes('Configure')) {
@@ -1825,101 +1729,59 @@ async function gerarImagemCanvas(servico, tema, legenda, formato, dia) {
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
 
-    const sLabels = {
-      limpeza:'Limpeza Profissional', portaria:'Portaria & Recepcao',
-      facilities:'Facilities & Manutencao', condominio:'Condominios',
-      lojas:'Lojas & Comercio', hospitais:'Hospitais & Clinicas',
-      empresas:'Empresas', geral:'LCS Terceirizacao'
-    };
-
     const drawCanvas = (bgImg) => {
+      // Fundo: foto ou gradiente
       if(bgImg) {
-        ctx.drawImage(bgImg, 0, 0, W, H);
-        const grad = ctx.createLinearGradient(0, 0, 0, H);
-        grad.addColorStop(0, 'rgba(0,0,0,0.55)');
-        grad.addColorStop(0.45, 'rgba(0,0,0,0.2)');
-        grad.addColorStop(1, 'rgba(0,0,0,0.88)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0,0,W,H);
+        const scale = Math.max(W/bgImg.width, H/bgImg.height);
+        const sw = bgImg.width*scale, sh = bgImg.height*scale;
+        ctx.drawImage(bgImg, (W-sw)/2, (H-sh)/2, sw, sh);
       } else {
         const bg = ctx.createLinearGradient(0,0,W,H);
         bg.addColorStop(0,'#1e3a8a'); bg.addColorStop(1,'#dc2626');
         ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
       }
 
-      // Top red bar
-      ctx.fillStyle = 'rgba(185,28,28,0.92)';
-      ctx.fillRect(0, 0, W, Math.round(H*0.09));
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${Math.round(W*0.034)}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.fillText(sLabels[servico] || 'LCS Terceirizacao', W/2, Math.round(H*0.058));
+      // Gradiente suave topo/base
+      const gradT = ctx.createLinearGradient(0,0,0,H*0.22);
+      gradT.addColorStop(0,'rgba(0,0,0,0.55)'); gradT.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle = gradT; ctx.fillRect(0,0,W,H*0.22);
+      const gradB = ctx.createLinearGradient(0,H*0.82,0,H);
+      gradB.addColorStop(0,'rgba(0,0,0,0)'); gradB.addColorStop(1,'rgba(0,0,0,0.7)');
+      ctx.fillStyle = gradB; ctx.fillRect(0,H*0.82,W,H*0.18);
 
-      // Logo
-      try {
-        const logoImg = new Image();
-        logoImg.src = LOGO_B64;
-        const ls = Math.round(W*0.1);
-        ctx.drawImage(logoImg, W-ls-10, 6, ls, ls);
-      } catch(e) {}
-
-      // Day badge
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      ctx.beginPath();
-      ctx.arc(Math.round(W*0.08), Math.round(H*0.19), Math.round(W*0.06), 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${Math.round(W*0.02)}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.fillText('DIA', Math.round(W*0.08), Math.round(H*0.172));
-      ctx.font = `bold ${Math.round(W*0.042)}px Arial`;
-      ctx.fillText(String(dia||1), Math.round(W*0.08), Math.round(H*0.21));
-
-      // Headline
-      const raw = (legenda||'').replace(/[*#✅📋🏢🧹🔧🏗️🛍️🏥🏭💼📞⭐🌟💡📱🏆]/g,'').trim();
-      const headline = raw.split('.')[0].split('!')[0].trim().substring(0,60);
+      // TOP BAR — só logo + nome empresa, SEM label de serviço
+      const BAR = Math.round(H*0.082);
+      ctx.fillStyle = 'rgba(185,28,28,0.93)';
+      ctx.fillRect(0,0,W,BAR);
+      try { ctx.drawImage(_logoCache, 6, 4, BAR-8, BAR-8); } catch(e){}
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.round(W*0.028)}px Arial`;
       ctx.textAlign = 'left';
-      ctx.shadowColor = 'rgba(0,0,0,0.9)';
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = '#ffffff';
-      const fs = Math.round(W*0.046);
-      ctx.font = `bold ${fs}px Arial`;
-      const words = headline.split(' ');
-      let line = '', y = Math.round(H*0.5), lh = Math.round(fs*1.3), maxW = W*0.84;
-      let lines = [];
-      for(let n=0;n<words.length;n++){
-        const tl = line+words[n]+' ';
-        if(ctx.measureText(tl).width > maxW && n>0){lines.push(line.trim());line=words[n]+' ';}
-        else{line=tl;}
-        if(lines.length>=3) break;
-      }
-      if(line.trim()) lines.push(line.trim());
-      lines.slice(0,3).forEach((l,i) => ctx.fillText(l, W*0.06, y + i*lh));
+      ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 3;
+      ctx.fillText('LCS Terceirização', BAR+6, Math.round(BAR*0.46));
+      ctx.font = `${Math.round(W*0.017)}px Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      ctx.fillText('Limpeza  •  Portaria  •  Facilities', BAR+6, Math.round(BAR*0.82));
       ctx.shadowBlur = 0;
 
-      // Slogan
-      ctx.fillStyle = 'rgba(255,255,255,0.82)';
-      ctx.font = `${Math.round(W*0.022)}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 6;
-      ctx.fillText('Qualidade  Confianca  Profissionalismo', W/2, Math.round(H*0.8));
-      ctx.shadowBlur = 0;
-
-      // Bottom bar
-      ctx.fillStyle = 'rgba(185,28,28,0.92)';
-      ctx.fillRect(0, Math.round(H*0.88), W, Math.round(H*0.12));
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${Math.round(W*0.026)}px Arial`;
+      // BOTTOM BAR — contato
+      const BBOT = Math.round(H*0.082);
+      ctx.fillStyle = 'rgba(185,28,28,0.93)';
+      ctx.fillRect(0,H-BBOT,W,BBOT);
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.round(W*0.024)}px Arial`;
       ctx.textAlign = 'left';
-      ctx.fillText('(51) 99889-3033', W*0.04, Math.round(H*0.933));
+      ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 2;
+      ctx.fillText('📱 (51) 99889-3033', W*0.025, H-BBOT+Math.round(BBOT*0.48));
       ctx.textAlign = 'right';
-      ctx.fillText('@lcs_terceirizacao', W*0.96, Math.round(H*0.933));
+      ctx.fillText('@lcs_terceirizacao', W*0.975, H-BBOT+Math.round(BBOT*0.48));
       ctx.textAlign = 'center';
-      ctx.font = `${Math.round(W*0.019)}px Arial`;
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.fillText('lcsterceirizacaors.com.br', W/2, Math.round(H*0.973));
+      ctx.font = `${Math.round(W*0.017)}px Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillText('lcsterceirizacaors.com.br', W/2, H-BBOT+Math.round(BBOT*0.84));
+      ctx.shadowBlur = 0;
 
-      resolve(cv.toDataURL('image/jpeg', 0.92));
+      resolve(cv.toDataURL('image/jpeg', 0.95));
     };
 
     // Try Pexels photo first, fallback to canvas
@@ -2280,19 +2142,20 @@ async function idbDeletarFoto(id) {
 async function migrarLocalStorageParaIDB() {
   // v2: limpar fotos antigas que tinham texto embutido (imgFull === imgEstilo ou sem imgFull separado)
   const flagV = localStorage.getItem('lcs_idb_v');
-  if(flagV !== '2') {
+  if(flagV !== '3') {
+    // v3: limpar TODO o IDB — fotos antigas tinham texto embutido na imagem
+    // Agora imgFull = foto original SEM texto; campo novo que versões antigas não tinham
     try {
       const todas = await idbListarFotos();
-      // Fotos legadas: não têm imgFull separado (era a mesma coisa que imgEstilo)
-      // Identificamos pelo fato de não terem o campo imgFull com foto original
-      // Vamos limpar tudo e pedir reprocessamento
-      if(todas.length > 0 && todas.some(f => !f.imgFull || f.imgFull === f.imgEstilo)) {
-        for(const f of todas) await idbDeletarFoto(f.id);
+      // Foto legada = não tem imgEstilo (campo novo da v44)
+      const legadas = todas.filter(f => !f.imgEstilo);
+      if(legadas.length > 0) {
+        for(const f of legadas) await idbDeletarFoto(f.id);
         localStorage.removeItem('lcs_idb_migrated');
-        showToast('🔄 Banco atualizado! Reprocesse suas fotos no Editor.');
+        showToast('🔄 ' + legadas.length + ' foto(s) antigas removidas — reprocesse no Editor!');
       }
     } catch(e) {}
-    localStorage.setItem('lcs_idb_v', '2');
+    localStorage.setItem('lcs_idb_v', '3');
   }
 
   const flag = localStorage.getItem('lcs_idb_migrated');
