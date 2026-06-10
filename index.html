@@ -1945,7 +1945,7 @@ async function gerarTrintaDias() {
     }
 
     renderTrintaGrid();
-    await new Promise(r => setTimeout(r, 300)); // pequena pausa entre posts
+    await new Promise(r => setTimeout(r, 2500)); // respeitar rate limit Groq (30 req/min)
   }
 
   bar.style.width = '100%';
