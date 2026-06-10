@@ -1893,16 +1893,13 @@ async function gerarTrintaDias() {
 
       lbl.textContent = `Gerando dia ${diaNum}/${dias} — imagem...`;
       const aspecto = tFormato === 'post' ? '1:1' : '9:16';
-      // Add extra delay to avoid rate limiting on image API
-      await new Promise(r => setTimeout(r, 1500));
       const imgUrl = await gerarImagem30(servico, tema, aspecto, tFormato);
 
       trintaPosts.push({
         dia: diaNum, dateISO, dateLabel,
         servico, tema, formato: tFormato,
         legenda, tags,
-        imgUrl: null, // images load after all text generated
-        imgPromptUrl: imgUrl, // store URL for later loading
+        imgUrl: imgUrl, // imagem já gerada junto com a legenda
         hora: '18:00',
         bufferEnviado: false
       });
@@ -1917,7 +1914,7 @@ async function gerarTrintaDias() {
     }
 
     renderTrintaGrid();
-    await new Promise(r => setTimeout(r, 3500)); // rate limit between posts
+    await new Promise(r => setTimeout(r, 300)); // pequena pausa entre posts
   }
 
   bar.style.width = '100%';
@@ -1928,8 +1925,7 @@ async function gerarTrintaDias() {
   showToast(`✅ ${dias} legendas geradas! Imagens carregando...`);
   updateStats();
 
-  // Load images progressively after all text is ready
-  carregarImagensProgressivas(dias);
+  renderTrintaGrid(); // imagens já carregadas junto com legendas
 }
 
 function renderTrintaGrid() {
