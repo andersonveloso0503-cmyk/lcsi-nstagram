@@ -1651,19 +1651,6 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
       const sw = img.width * scale, sh = img.height * scale;
       ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
 
-      // Gradiente LEVE só no topo e rodapé — não escurecer o centro
-      const gradTop = ctx.createLinearGradient(0, 0, 0, 100);
-      gradTop.addColorStop(0, 'rgba(0,0,0,0.55)');
-      gradTop.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = gradTop;
-      ctx.fillRect(0, 0, W, 100);
-
-      const gradBot = ctx.createLinearGradient(0, H - 90, 0, H);
-      gradBot.addColorStop(0, 'rgba(0,0,0,0)');
-      gradBot.addColorStop(1, 'rgba(0,0,0,0.65)');
-      ctx.fillStyle = gradBot;
-      ctx.fillRect(0, H - 90, W, 90);
-
       // TOP BAR — vermelho LCS (mesmas proporções do aplicarEstiloFoto)
       const BAR = Math.round(H * 0.082);
       ctx.fillStyle = 'rgba(185,28,28,0.93)';
@@ -1962,7 +1949,7 @@ function renderTrintaGrid() {
             <span style="font-size:11px;color:var(--muted);">${p.dateLabel} · ${p.hora}</span>
             <span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(37,99,235,.15);color:var(--accent2);">${p.formato==='reels'?'🎬 Reels':p.formato==='stories'?'📱 Stories':'🖼️ Post'}</span>
           </div>
-          <div style="font-size:12px;color:var(--text);line-height:1.6;margin-bottom:8px;">${p.legenda.substring(0,120)}${p.legenda.length>120?'...':''}</div>
+          <div style="font-size:12px;color:var(--text);line-height:1.6;margin-bottom:8px;">${(p.legenda||'Gerando legenda...').substring(0,120)}${(p.legenda||'').length>120?'...':''}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${p.tags.slice(0,4).map(t=>`<span class="tag" style="font-size:10px;">${t}</span>`).join('')}
           </div>
