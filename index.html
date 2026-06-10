@@ -862,7 +862,7 @@ Responda APENAS com a legenda estruturada.`;
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        model:'claude-sonnet-4-5',
+        model:'claude-sonnet-4-20250514',
         max_tokens:600,
         messages:[{role:'user',content:prompt}]
       })
@@ -1558,24 +1558,51 @@ Responda APENAS legenda + ---HASHTAGS--- + hashtags separadas por vírgula.`;
 }
 
 async function gerarLegenda30(dia, formato='post') {
-  const res = await fetch('/api/claude', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      model:'claude-sonnet-4-5',
-      max_tokens:500,
-      messages:[{role:'user',content:buildLegendaPrompt30(dia)}]
-    })
-  });
-  const data = await res.json();
-  const full = data.content?.[0]?.text || '';
-  let legenda = full, tags = [];
-  if(full.includes('---HASHTAGS---')) {
-    const parts = full.split('---HASHTAGS---');
-    legenda = parts[0].trim();
-    tags = parts[1]?.trim().split(',').map(t=>t.trim()).filter(t=>t.startsWith('#')) || [];
+  const prompt = buildLegendaPrompt30(dia);
+  
+  // Timeout de 25s para não travar
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000);
+  
+  try {
+    const res = await fetch('/api/claude', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      signal: controller.signal,
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:500,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    clearTimeout(timer);
+    
+    if(!res.ok) {
+      const err = await res.text();
+      throw new Error(`HTTP ${res.status}: ${err.substring(0,100)}`);
+    }
+    
+    const data = await res.json();
+    
+    // Checar erro da API Anthropic
+    if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    
+    const full = data.content?.[0]?.text || '';
+    if(!full) throw new Error('Resposta vazia da API');
+    
+    let legenda = full, tags = [];
+    if(full.includes('---HASHTAGS---')) {
+      const parts = full.split('---HASHTAGS---');
+      legenda = parts[0].trim();
+      tags = parts[1]?.trim().split(',').map(t=>t.trim()).filter(t=>t.startsWith('#')) || [];
+    }
+    return {legenda, tags};
+    
+  } catch(e) {
+    clearTimeout(timer);
+    if(e.name === 'AbortError') throw new Error('Timeout — API demorou mais de 25s');
+    throw e;
   }
-  return {legenda, tags};
 }
 
 // Cache das fotos do IDB para usar nos 30 dias
@@ -1893,7 +1920,7 @@ async function gerarTrintaDias() {
 
       lbl.textContent = `Gerando dia ${diaNum}/${dias} — imagem...`;
       const aspecto = tFormato === 'post' ? '1:1' : '9:16';
-      const imgUrl = await gerarImagem30(servico, tema, aspecto, tFormato);
+      const imgUrl = await gerarImagem30(servico, tema, aspecto, tFormato, i);
 
       trintaPosts.push({
         dia: diaNum, dateISO, dateLabel,
@@ -1904,10 +1931,14 @@ async function gerarTrintaDias() {
         bufferEnviado: false
       });
     } catch(e) {
+      console.error('Erro dia', diaNum, e);
+      // Mostrar erro específico para diagnóstico
+      const errMsg = e.message || String(e);
+      showToast(`⚠️ Dia ${diaNum}: ${errMsg.substring(0,60)}`);
       trintaPosts.push({
         dia: diaNum, dateISO, dateLabel,
         servico: PLANO_30[i].servico, tema: PLANO_30[i].tema,
-        legenda: '⚠️ Erro ao gerar legenda para este dia.',
+        legenda: `❌ Erro: ${errMsg}`,
         tags: [], imgUrl: null,
         hora: '18:00', bufferEnviado: false
       });
@@ -2273,7 +2304,7 @@ async function analisarFotoIA(base64Src, indice) {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 300,
         messages: [{
           role: 'user',
