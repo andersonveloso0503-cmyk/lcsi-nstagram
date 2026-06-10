@@ -3,7 +3,8 @@
     "api/pexels.js": { "maxDuration": 60 },
     "api/upload.js": { "maxDuration": 60 },
     "api/claude.js": { "maxDuration": 30 },
-    "api/buffer.js": { "maxDuration": 30 }
+    "api/buffer.js": { "maxDuration": 30 },
+    "api/gemini.js": { "maxDuration": 30 }
   },
   "headers": [
     {
