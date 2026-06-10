@@ -858,7 +858,7 @@ Responda APENAS com a legenda estruturada.`;
   box.classList.add('loading');
 
   try {
-    const res = await fetch('/api/gemini', {
+    const res = await fetch('/api/groq', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
@@ -1565,7 +1565,7 @@ async function gerarLegenda30(dia, formato='post') {
   const timer = setTimeout(() => controller.abort(), 25000);
   
   try {
-    const res = await fetch('/api/gemini', {
+    const res = await fetch('/api/groq', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       signal: controller.signal,
@@ -2300,7 +2300,7 @@ async function analisarFotoIA(base64Src, indice) {
   try {
     const base64 = base64Src.split(',')[1];
     const mediaType = base64Src.split(';')[0].split(':')[1] || 'image/jpeg';
-    const res = await fetch('/api/gemini', {
+    const res = await fetch('/api/groq', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
