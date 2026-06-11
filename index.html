@@ -1784,8 +1784,8 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
   });
 }
 
-// Controle de fotos já usadas no Auto Post — evita repetição
-if(!window._apFotosUsadas) window._apFotosUsadas = {};
+// Controle de índice por serviço — rotação sequencial sem repetir
+if(!window._apFotoIdx) window._apFotoIdx = {};
 
 async function buscarFotoIA(servico, dia, formato) {
   // 1. Prioridade: foto manualmente selecionada pelo usuário
@@ -1794,36 +1794,21 @@ async function buscarFotoIA(servico, dia, formato) {
     return f.imgFull || f.thumb || null;
   }
 
-  // 2. Buscar do IndexedDB por serviço correspondente — sem repetir
+  // 2. Buscar do IndexedDB — rotação sequencial por serviço
   try {
     const todasFotos = await idbListarFotos();
     if(todasFotos.length > 0) {
       const match = todasFotos.filter(f => f.servico === servico);
       const pool = match.length > 0 ? match : todasFotos;
 
-      // Embaralha pool com seed baseada no dia para variedade
-      const shuffled = [...pool].sort((a, b) => {
-        const hashA = (a.id || a.nome || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), dia);
-        const hashB = (b.id || b.nome || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), dia);
-        return hashA - hashB;
-      });
+      // Índice rotativo por serviço — avança a cada chamada
+      if(window._apFotoIdx[servico] === undefined) window._apFotoIdx[servico] = 0;
+      const idx = window._apFotoIdx[servico] % pool.length;
+      window._apFotoIdx[servico] = idx + 1;
 
-      // Pega a próxima foto não usada para este serviço
-      const chave = servico;
-      if(!window._apFotosUsadas[chave]) window._apFotosUsadas[chave] = new Set();
-      const usadas = window._apFotosUsadas[chave];
-
-      // Encontra primeira não usada
-      let foto = shuffled.find(f => !usadas.has(f.id || f.nome));
-
-      // Se todas foram usadas, reseta e recomeça
-      if(!foto) {
-        window._apFotosUsadas[chave] = new Set();
-        foto = shuffled[0];
-      }
-
+      const foto = pool[idx];
+      console.log('IDB: servico='+servico+' pool='+pool.length+' idx='+idx+' foto='+(foto?.nome||foto?.id));
       if(foto) {
-        window._apFotosUsadas[chave].add(foto.id || foto.nome);
         if(foto.imgFull) return foto.imgFull;
         if(foto.imgEstilo) return foto.imgEstilo;
         if(foto.thumb) return foto.thumb;
@@ -2952,7 +2937,7 @@ async function apGerarPreview() {
   const list = document.getElementById('ap-preview-list');
   list.innerHTML = '';
   apPreviewData = [];
-  window._apFotosUsadas = {}; // reseta controle de fotos ao gerar nova prévia
+  window._apFotoIdx = {}; // reseta índice de fotos ao gerar nova prévia
 
   const hoje = new Date();
   apLog('Gerando prévia dos próximos 7 dias...');
