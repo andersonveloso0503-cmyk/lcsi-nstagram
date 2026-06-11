@@ -15,13 +15,6 @@ const PROMPTS = {
     'Brazilian male doorman in suit welcoming gesture at luxury apartment entrance, realistic photo',
     'Brazilian condominium receptionist in uniform smiling at lobby desk, professional photo'
   ],
-  facilities: [
-    'Brazilian male maintenance technician in blue uniform fixing building systems, realistic work photo',
-    'Latin American technician in uniform doing preventive maintenance in building, professional photo',
-    'Brazilian handyman in uniform repairing office building equipment, realistic photo',
-    'Brazilian male facilities worker in uniform checking systems with tablet, professional photo',
-    'Latin American maintenance engineer with hard hat inspecting building, realistic photo'
-  ],
   condominio: [
     'Brazilian male security guard in uniform at condominium entrance gate, realistic photo',
     'Brazilian doorman in uniform opening door at residential building lobby, professional photo',
@@ -40,15 +33,8 @@ const PROMPTS = {
     'Brazilian hospital cleaning worker in white uniform with mask sanitizing hospital corridor, realistic photo',
     'Latin American healthcare janitor in PPE uniform cleaning hospital room, realistic photo',
     'Brazilian female cleaning staff in uniform with hairnet disinfecting clinic, professional photo',
-    'Brazilian hospital housekeeper in uniform with mask mopping medical facility, realistic photo',
+    'Brazilian hospital housekeeper in uniform mopping medical facility, realistic photo',
     'Latin American cleaning professional in PPE sanitizing hospital ward, realistic photo'
-  ],
-  empresas: [
-    'Brazilian cleaning worker in uniform vacuuming modern corporate office, realistic photo',
-    'Brazilian female janitor in uniform cleaning executive boardroom, professional photo',
-    'Latin American cleaning staff in uniforms maintaining modern office, realistic photo',
-    'Brazilian male janitor in uniform mopping corporate corridor, professional photo',
-    'Brazilian office cleaning professional with cleaning cart, realistic work photo'
   ],
   geral: [
     'Team of Brazilian cleaning and security professionals in uniforms standing together, professional group photo',
@@ -59,83 +45,102 @@ const PROMPTS = {
   ]
 };
 
-async function tryImagen3(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_KEY}`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      instances: [{ prompt }],
-      parameters: { sampleCount: 1, aspectRatio: '1:1', personGeneration: 'allow_adult', safetySetting: 'block_only_high' }
-    })
-  });
-  const data = await response.json();
-  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-  if (!b64) throw new Error('Sem imagem');
-  return `data:image/png;base64,${b64}`;
-}
-
-async function tryGeminiFlash(prompt) {
-  // Gemini 2.0 Flash com geração de imagem nativa
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GEMINI_KEY}`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
-    })
-  });
-  const data = await response.json();
-  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  // Procura parte com inlineData (imagem)
-  const parts = data.candidates?.[0]?.content?.parts || [];
-  const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-  if (!imgPart) throw new Error('Sem imagem no flash');
-  return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
-}
-
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  try {
-    if (!GEMINI_KEY) return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+  if (!GEMINI_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+  }
 
-    const { servico, dia } = req.body;
-    const prompts = PROMPTS[servico] || PROMPTS.geral;
-    const prompt = prompts[(dia || 0) % prompts.length];
+  const { servico, dia } = req.body;
+  const prompts = PROMPTS[servico] || PROMPTS.geral;
+  const prompt = prompts[(dia || 0) % prompts.length];
 
-    // Tenta Imagen 3 primeiro, fallback para Gemini Flash
-    let imageData = null;
-    const errors = [];
-
-    try {
-      imageData = await tryImagen3(prompt);
-      console.log('Imagen 3 success');
-    } catch(e) {
-      errors.push('Imagen3: ' + e.message);
-      console.warn('Imagen 3 falhou, tentando Gemini Flash:', e.message);
-      try {
-        imageData = await tryGeminiFlash(prompt);
-        console.log('Gemini Flash success');
-      } catch(e2) {
-        errors.push('Flash: ' + e2.message);
-        console.error('Gemini Flash também falhou:', e2.message);
+  // Tenta cada modelo em sequência até um funcionar
+  const modelos = [
+    {
+      nome: 'imagen-3.0-generate-002',
+      url: `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_KEY}`,
+      body: {
+        instances: [{ prompt }],
+        parameters: { sampleCount: 1, aspectRatio: '1:1', personGeneration: 'allow_adult', safetySetting: 'block_only_high' }
+      },
+      parse: (data) => {
+        const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+        return b64 ? `data:image/png;base64,${b64}` : null;
+      }
+    },
+    {
+      nome: 'gemini-2.0-flash-exp-image-generation',
+      url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GEMINI_KEY}`,
+      body: {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['IMAGE'] }
+      },
+      parse: (data) => {
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const img = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+        return img ? `data:${img.inlineData.mimeType};base64,${img.inlineData.data}` : null;
+      }
+    },
+    {
+      nome: 'gemini-2.0-flash-preview-image-generation',
+      url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GEMINI_KEY}`,
+      body: {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['IMAGE'] }
+      },
+      parse: (data) => {
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const img = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+        return img ? `data:${img.inlineData.mimeType};base64,${img.inlineData.data}` : null;
       }
     }
+  ];
 
-    if (!imageData) {
-      return res.status(500).json({ error: 'Ambos modelos falharam', details: errors });
+  const erros = [];
+
+  for (const modelo of modelos) {
+    try {
+      console.log(`Tentando ${modelo.nome}...`);
+      const response = await fetch(modelo.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(modelo.body)
+      });
+
+      const text = await response.text();
+      console.log(`${modelo.nome} status: ${response.status}, body: ${text.substring(0, 300)}`);
+
+      if (!response.ok) {
+        erros.push(`${modelo.nome}: HTTP ${response.status} - ${text.substring(0, 200)}`);
+        continue;
+      }
+
+      const data = JSON.parse(text);
+      if (data.error) {
+        erros.push(`${modelo.nome}: ${data.error.message || JSON.stringify(data.error)}`);
+        continue;
+      }
+
+      const imageData = modelo.parse(data);
+      if (imageData) {
+        console.log(`✅ ${modelo.nome} funcionou!`);
+        return res.status(200).json({ imageData, modelo: modelo.nome });
+      }
+
+      erros.push(`${modelo.nome}: parse retornou null`);
+
+    } catch (e) {
+      erros.push(`${modelo.nome}: ${e.message}`);
+      console.error(`Erro ${modelo.nome}:`, e.message);
     }
-
-    res.status(200).json({ imageData });
-
-  } catch (err) {
-    console.error('pexels handler error:', err.message);
-    res.status(500).json({ error: err.message });
   }
+
+  // Todos falharam — retorna erro detalhado para diagnóstico
+  console.error('Todos os modelos falharam:', erros);
+  return res.status(500).json({ error: 'Todos os modelos Gemini falharam', detalhes: erros });
 }
