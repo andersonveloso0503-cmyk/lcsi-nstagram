@@ -368,6 +368,7 @@
     <button class="tab" onclick="switchTab('posts',this)">📋 Meus Posts</button>
     <button class="tab" onclick="switchTab('temas',this)">🎯 Banco de Temas</button>
     <button class="tab" onclick="switchTab('editor',this)">🎨 Editor de Fotos</button>
+    <button class="tab" onclick="switchTab('autopost',this)" style="background:linear-gradient(135deg,rgba(99,102,241,.25),rgba(16,185,129,.2));border-color:rgba(99,102,241,.5);color:#a5b4fc;">🤖 Auto Post</button>
   </div>
 
   <!-- GERADOR -->
@@ -714,6 +715,72 @@
       <button class="btn btn-secondary btn-sm" onclick="limparTodoIDB()" style="font-size:11px;border-color:rgba(239,68,68,0.4);color:var(--red);">🗑️ Limpar banco e reprocessar</button>
     </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" id="banco-temas"></div>
+  </div>
+
+  <!-- AUTO POST -->
+  <div class="section" id="sec-autopost">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h2 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--white);margin:0;">🤖 Auto Post Diário</h2>
+        <p style="font-size:12px;color:var(--muted);margin:4px 0 0;">Define o tema de cada dia — a IA gera legenda + imagem e agenda automaticamente no Instagram.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div id="ap-status-badge" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);">⏸ Inativo</div>
+        <button class="btn btn-sm" id="btn-ap-toggle" onclick="apToggleAtivo()" style="background:linear-gradient(135deg,#6366f1,#10b981);color:#fff;border:none;font-size:12px;">▶ Ativar</button>
+      </div>
+    </div>
+
+    <!-- Config strip -->
+    <div class="card" style="margin-bottom:18px;padding:16px 18px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Chave Buffer API</label>
+          <input type="password" id="ap-buffer-key" placeholder="Cole sua chave Buffer" style="margin-top:4px;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Melhor horário de postagem</label>
+          <select id="ap-horario" style="margin-top:4px;">
+            <option value="auto">🤖 IA escolhe automaticamente</option>
+            <option value="08:00">Manhã — 08:00</option>
+            <option value="09:00">Manhã — 09:00</option>
+            <option value="12:00">Meio-dia — 12:00</option>
+            <option value="17:00">Tarde — 17:00</option>
+            <option value="18:00">Final de tarde — 18:00</option>
+            <option value="19:00">Noite — 19:00</option>
+            <option value="20:00">Noite — 20:00</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekly schedule -->
+    <div class="card" style="margin-bottom:18px;padding:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--white);">📅 Grade Semanal de Temas</h3>
+        <button class="btn btn-secondary btn-sm" onclick="apSalvarGrade()" style="font-size:11px;">💾 Salvar Grade</button>
+      </div>
+      <div id="ap-grade" style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;"></div>
+    </div>
+
+    <!-- Next 7 days preview -->
+    <div class="card" style="margin-bottom:18px;padding:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--white);">🔮 Próximos 7 dias</h3>
+        <button class="btn btn-sm" onclick="apGerarPreview()" style="background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;border:none;font-size:12px;">✨ Gerar Prévia</button>
+      </div>
+      <div id="ap-preview-list" style="display:flex;flex-direction:column;gap:10px;">
+        <p style="color:var(--muted);font-size:13px;">Clique em "Gerar Prévia" para ver os posts que serão criados esta semana.</p>
+      </div>
+    </div>
+
+    <!-- Action button -->
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="apVerHistorico()">📋 Histórico</button>
+      <button class="btn btn-sm" id="btn-ap-agendar-tudo" onclick="apAgendarTudo()" style="background:linear-gradient(135deg,#6366f1,#10b981);color:#fff;border:none;font-size:13px;padding:10px 20px;">🚀 Agendar Próximos 7 Dias no Buffer</button>
+    </div>
+
+    <!-- Log -->
+    <div id="ap-log" style="margin-top:16px;background:rgba(0,0,0,.3);border-radius:10px;padding:12px;font-size:11px;color:var(--muted);font-family:monospace;min-height:40px;display:none;max-height:180px;overflow-y:auto;"></div>
   </div>
 
 </main>
@@ -2589,6 +2656,358 @@ async function gerarTrintaComMinhasFotos() {
 // INIT
 updateStats();
 renderCalendario();
+
+// ============================================================
+// AUTO POST DIÁRIO — Sistema completo
+// ============================================================
+const AP_DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const AP_DIAS_FULL = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+
+const AP_TEMAS_DEFAULT = {
+  0: { servico:'condominio', tema:'beneficios',   tom:'profissional' },
+  1: { servico:'portaria',   tema:'credibilidade', tom:'profissional' },
+  2: { servico:'limpeza',    tema:'beneficios',   tom:'engajamento'  },
+  3: { servico:'condominio', tema:'dica',          tom:'educativo'    },
+  4: { servico:'portaria',   tema:'cases',         tom:'profissional' },
+  5: { servico:'limpeza',    tema:'resultado',     tom:'engajamento'  },
+  6: { servico:'lojas',      tema:'beneficios',   tom:'direto'       }
+};
+
+const AP_HORARIOS_INTELIGENTES = ['08:30','09:00','12:00','17:30','18:00','19:00','20:00'];
+
+// Melhor horário por dia da semana (baseado em engajamento BR)
+const AP_MELHOR_HORARIO = {
+  0:'19:00', 1:'08:30', 2:'12:00', 3:'12:00', 4:'18:00', 5:'17:30', 6:'20:00'
+};
+
+let apGrade = JSON.parse(localStorage.getItem('ap_grade') || 'null') || {...AP_TEMAS_DEFAULT};
+let apAtivo = JSON.parse(localStorage.getItem('ap_ativo') || 'false');
+let apPreviewData = [];
+
+function apInit() {
+  apRenderGrade();
+  apRestaurarConfig();
+  apAtualizarBadge();
+}
+
+function apRestaurarConfig() {
+  const savedKey = localStorage.getItem('ap_buffer_key') || '';
+  const savedHorario = localStorage.getItem('ap_horario') || 'auto';
+  const apKeyEl = document.getElementById('ap-buffer-key');
+  const apHorEl = document.getElementById('ap-horario');
+  if(apKeyEl && savedKey) apKeyEl.value = savedKey;
+  if(apHorEl) apHorEl.value = savedHorario;
+}
+
+function apAtualizarBadge() {
+  const badge = document.getElementById('ap-status-badge');
+  const btn = document.getElementById('btn-ap-toggle');
+  if(!badge || !btn) return;
+  if(apAtivo) {
+    badge.textContent = '✅ Ativo';
+    badge.style.background = 'rgba(16,185,129,.15)';
+    badge.style.color = '#34d399';
+    badge.style.borderColor = 'rgba(16,185,129,.3)';
+    btn.textContent = '⏸ Pausar';
+  } else {
+    badge.textContent = '⏸ Inativo';
+    badge.style.background = 'rgba(239,68,68,.15)';
+    badge.style.color = '#f87171';
+    badge.style.borderColor = 'rgba(239,68,68,.3)';
+    btn.textContent = '▶ Ativar';
+  }
+}
+
+function apToggleAtivo() {
+  apAtivo = !apAtivo;
+  localStorage.setItem('ap_ativo', JSON.stringify(apAtivo));
+  apAtualizarBadge();
+  showToast(apAtivo ? '✅ Auto Post ativado! Agendando...' : '⏸ Auto Post pausado.');
+  if(apAtivo) apAgendarTudo();
+}
+
+const AP_SERVICOS = {
+  condominio:  '🏢 Condomínio',
+  portaria:    '🚪 Portaria',
+  limpeza:     '🧹 Limpeza',
+  lojas:       '🛍️ Lojas',
+  hospitais:   '🏥 Hospitais'
+};
+const AP_TEMAS_OPT = {
+  condominio:  ['beneficios','credibilidade','dica','cases','resultado'],
+  portaria:    ['beneficios','credibilidade','dica','cases','resultado'],
+  limpeza:     ['beneficios','credibilidade','dica','cases','resultado'],
+  lojas:       ['beneficios','credibilidade','dica','resultado'],
+  hospitais:   ['beneficios','credibilidade','dica','resultado']
+};
+
+function apRenderGrade() {
+  const container = document.getElementById('ap-grade');
+  if(!container) return;
+  container.innerHTML = '';
+  for(let d=0; d<7; d++) {
+    const cfg = apGrade[d] || AP_TEMAS_DEFAULT[d];
+    const temasOpts = (AP_TEMAS_OPT[cfg.servico] || AP_TEMAS_OPT.condominio).map(t =>
+      `<option value="${t}" ${cfg.tema===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`
+    ).join('');
+    container.innerHTML += `
+      <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 8px;display:flex;flex-direction:column;gap:6px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-align:center;">${AP_DIAS[d]}</div>
+        <select id="ap-serv-${d}" onchange="apUpdateServ(${d})" style="font-size:10px;padding:4px 6px;">
+          ${Object.entries(AP_SERVICOS).map(([v,l])=>`<option value="${v}" ${cfg.servico===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <select id="ap-tema-${d}" style="font-size:10px;padding:4px 6px;">${temasOpts}</select>
+        <select id="ap-tom-${d}" style="font-size:10px;padding:4px 6px;">
+          <option value="profissional" ${cfg.tom==='profissional'?'selected':''}>💼 Prof.</option>
+          <option value="engajamento" ${cfg.tom==='engajamento'?'selected':''}>🔥 Engaj.</option>
+          <option value="educativo" ${cfg.tom==='educativo'?'selected':''}>📚 Educ.</option>
+          <option value="direto" ${cfg.tom==='direto'?'selected':''}>⚡ Direto</option>
+        </select>
+      </div>`;
+  }
+}
+
+function apUpdateServ(d) {
+  const serv = document.getElementById(`ap-serv-${d}`).value;
+  const temaSelect = document.getElementById(`ap-tema-${d}`);
+  const opts = (AP_TEMAS_OPT[serv] || AP_TEMAS_OPT.condominio);
+  temaSelect.innerHTML = opts.map(t=>`<option value="${t}">${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
+}
+
+function apSalvarGrade() {
+  for(let d=0; d<7; d++) {
+    const servEl = document.getElementById(`ap-serv-${d}`);
+    const temaEl = document.getElementById(`ap-tema-${d}`);
+    const tomEl  = document.getElementById(`ap-tom-${d}`);
+    if(servEl) apGrade[d] = { servico: servEl.value, tema: temaEl.value, tom: tomEl.value };
+  }
+  localStorage.setItem('ap_grade', JSON.stringify(apGrade));
+  // Save buffer key and schedule
+  const keyEl = document.getElementById('ap-buffer-key');
+  const horEl = document.getElementById('ap-horario');
+  if(keyEl && keyEl.value) localStorage.setItem('ap_buffer_key', keyEl.value);
+  if(horEl) localStorage.setItem('ap_horario', horEl.value);
+  showToast('✅ Grade salva!');
+}
+
+function apLog(msg) {
+  const el = document.getElementById('ap-log');
+  if(!el) return;
+  el.style.display = 'block';
+  el.innerHTML += `<div>[${new Date().toLocaleTimeString('pt-BR')}] ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function apGetHorario(diaSemana) {
+  const sel = document.getElementById('ap-horario')?.value || localStorage.getItem('ap_horario') || 'auto';
+  return sel === 'auto' ? AP_MELHOR_HORARIO[diaSemana] : sel;
+}
+
+async function apGerarLegendaIA(servico, tema, tom) {
+  const servicoLabel = AP_SERVICOS[servico]?.replace(/^..\s/,'') || servico;
+  const resp = await fetch('/api/claude', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-20250514', max_tokens:800,
+      messages:[{role:'user', content:`Você é especialista em marketing para a empresa LCS Terceirização, de Porto Alegre, RS, que oferece serviços de ${servicoLabel}. Crie uma legenda para Instagram sobre o tema "${tema}" com tom "${tom}". A legenda deve ter 3-5 parágrafos curtos, ser persuasiva, usar emojis relevantes, terminar com chamada para ação (WhatsApp: (51) 99889-3033). NÃO inclua hashtags na legenda. Retorne APENAS a legenda, sem explicações.`}]
+    })
+  });
+  const data = await resp.json();
+  return data?.content?.[0]?.text || '';
+}
+
+async function apGerarHashtags(servico) {
+  const mapa = {
+    condominio:'#lcsterceirizacao #terceirizacaors #portaria #condominio #sindicos #portoalegre #grandeportoalegre #facilitiesportoalegre #gestaocondominal #portariacondominio',
+    portaria:  '#lcsterceirizacao #terceirizacaors #portaria #porteiros #seguranca #portoalegre #facilitiesportoalegre #terceirizacao #portariaepresença #controledacesso',
+    limpeza:   '#lcsterceirizacao #terceirizacaors #limpeza #limpezaprofissional #conservacao #portoalegre #facilitiesportoalegre #terceirizacao #higienizacao #limpezacorporativa',
+    lojas:     '#lcsterceirizacao #terceirizacaors #limpeza #limpezacomercial #portoalegre #comercioPOA #estabelecimentos #limpezadelojas #terceirizacao #conservacao',
+    hospitais: '#lcsterceirizacao #terceirizacaors #limpeza #limpezahospitalar #saude #portoalegre #hospitais #clinicas #higienizacao #biosseguranca'
+  };
+  return (mapa[servico] || mapa.condominio).split(' ');
+}
+
+async function apGerarImagem(servico, tema, legenda) {
+  try {
+    const fotoData = await buscarFotoIA(servico, Math.floor(Math.random()*5), 'post');
+    if(fotoData) {
+      return await aplicarLogoCanvas(fotoData, servico, legenda);
+    }
+    return await gerarImagemCanvas(servico, tema, legenda, 'post', 1);
+  } catch(e) {
+    return await gerarImagemCanvas(servico, tema, legenda, 'post', 1);
+  }
+}
+
+async function apUploadImagem(dataUrl) {
+  try {
+    const res = await fetch('/api/upload', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ imageData: dataUrl })
+    });
+    const data = await res.json();
+    return data.url || null;
+  } catch(e) { return null; }
+}
+
+async function apEnviarBuffer(bufferKey, texto, imageUrl, dataHora) {
+  // Step 1: get org
+  const orgRes = await fetch('/api/buffer', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ query:`query { account { organizations { id name } } }`, token: bufferKey })
+  });
+  const orgData = await orgRes.json();
+  const orgId = orgData?.data?.account?.organizations?.[0]?.id;
+  if(!orgId) throw new Error('Org não encontrada');
+
+  // Step 2: get channel
+  const chRes = await fetch('/api/buffer', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ query:`query { channels(input: { organizationId: "${orgId}" }) { id name service } }`, token: bufferKey })
+  });
+  const chData = await chRes.json();
+  const channels = chData?.data?.channels || [];
+  const igChannel = channels.find(c=>(c.service||'').includes('instagram')||(c.name||'').toLowerCase().includes('lcs')) || channels[0];
+  if(!igChannel?.id) throw new Error('Canal Instagram não encontrado');
+
+  const scheduledAt = dataHora;
+  const assetsField = imageUrl ? `, assets: [{ image: { url: ${JSON.stringify(imageUrl)} } }]` : '';
+
+  const res = await fetch('/api/buffer', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      query: `mutation { createPost(input: { text: ${JSON.stringify(texto)}, channelId: "${igChannel.id}", schedulingType: automatic, mode: customScheduled, dueAt: "${scheduledAt}", metadata: { instagram: { type: post, shouldShareToFeed: true } }${assetsField} }) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`,
+      token: bufferKey
+    })
+  });
+  const data = await res.json();
+  if(!data?.data?.createPost?.post) throw new Error(JSON.stringify(data));
+  return data.data.createPost.post.id;
+}
+
+async function apGerarPreview() {
+  const btn = document.querySelector('#sec-autopost button[onclick="apGerarPreview()"]');
+  if(btn) { btn.innerHTML = '<span class="spinner"></span> Gerando...'; btn.disabled = true; }
+
+  const list = document.getElementById('ap-preview-list');
+  list.innerHTML = '';
+  apPreviewData = [];
+
+  const hoje = new Date();
+  apLog('Gerando prévia dos próximos 7 dias...');
+
+  for(let i=0; i<7; i++) {
+    const data = new Date(hoje);
+    data.setDate(hoje.getDate() + i);
+    const diaSem = data.getDay();
+    const cfg = apGrade[diaSem] || AP_TEMAS_DEFAULT[diaSem];
+    const horario = apGetHorario(diaSem);
+    const dataStr = data.toLocaleDateString('pt-BR', {weekday:'short', day:'2-digit', month:'2-digit'});
+
+    apLog(`📝 Gerando legenda para ${AP_DIAS_FULL[diaSem]}...`);
+
+    // Loading card
+    const cardId = `ap-card-${i}`;
+    list.innerHTML += `<div id="${cardId}" style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="width:52px;height:52px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span class="spinner" style="width:20px;height:20px;border-width:2px;"></span></div>
+      <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;">${dataStr} • ${horario} • ${AP_SERVICOS[cfg.servico]} • ${cfg.tema}</div><div style="font-size:12px;color:var(--muted);">Gerando legenda...</div></div>
+    </div>`;
+
+    try {
+      const legenda = await apGerarLegendaIA(cfg.servico, cfg.tema, cfg.tom);
+      const tags = await apGerarHashtags(cfg.servico);
+      const textoFull = `${legenda}\n\n${tags.join(' ')}`;
+
+      // Build scheduled datetime
+      const [hh, mm] = horario.split(':');
+      const schedDate = new Date(data);
+      schedDate.setHours(parseInt(hh), parseInt(mm), 0, 0);
+      const scheduledAt = schedDate.toISOString().replace('Z','-03:00').substring(0,19)+'-03:00';
+
+      apPreviewData[i] = { cfg, data: schedDate, scheduledAt, legenda, tags, textoFull, servico: cfg.servico };
+
+      // Update card
+      const card = document.getElementById(cardId);
+      if(card) card.innerHTML = `
+        <div style="width:52px;height:52px;border-radius:8px;background:linear-gradient(135deg,rgba(99,102,241,.3),rgba(16,185,129,.2));flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;">${cfg.servico==='condominio'?'🏢':cfg.servico==='portaria'?'🚪':cfg.servico==='limpeza'?'🧹':cfg.servico==='lojas'?'🛍️':'🏥'}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;font-weight:700;color:#a5b4fc;margin-bottom:4px;">${AP_DIAS_FULL[diaSem]}, ${dataStr} • ${horario} • ${AP_SERVICOS[cfg.servico]?.replace(/^..\s/,'')} • <em>${cfg.tema}</em></div>
+          <div style="font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${legenda.substring(0,180)}...</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;">${tags.slice(0,4).join(' ')} ...</div>
+        </div>
+        <div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px;">
+          <span style="padding:2px 8px;border-radius:10px;font-size:10px;background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);">✏️ Pronto</span>
+        </div>`;
+
+      apLog(`✅ ${AP_DIAS_FULL[diaSem]} pronto.`);
+    } catch(e) {
+      apLog(`❌ Erro ${AP_DIAS_FULL[diaSem]}: ${e.message}`);
+    }
+  }
+
+  if(btn) { btn.innerHTML = '✨ Gerar Prévia'; btn.disabled = false; }
+  showToast('✅ Prévia gerada para 7 dias!');
+}
+
+async function apAgendarTudo() {
+  const bufferKey = document.getElementById('ap-buffer-key')?.value?.trim()
+    || localStorage.getItem('ap_buffer_key') || '';
+  if(!bufferKey) { showToast('⚠️ Cole a chave Buffer API primeiro!'); return; }
+
+  const logEl = document.getElementById('ap-log');
+  if(logEl) logEl.style.display = 'block';
+
+  // If no preview, generate first
+  if(apPreviewData.length === 0) {
+    apLog('Gerando conteúdo primeiro...');
+    await apGerarPreview();
+  }
+
+  const btn = document.getElementById('btn-ap-agendar-tudo');
+  if(btn) { btn.innerHTML = '<span class="spinner"></span> Agendando...'; btn.disabled = true; }
+
+  let sucesso = 0, falha = 0;
+
+  for(let i=0; i<apPreviewData.length; i++) {
+    const item = apPreviewData[i];
+    if(!item) continue;
+    apLog(`📸 Gerando imagem para ${AP_DIAS_FULL[item.data.getDay()]}...`);
+    try {
+      const imgDataUrl = await apGerarImagem(item.servico, item.cfg.tema, item.legenda);
+      apLog(`☁️ Enviando imagem...`);
+      const imgUrl = await apUploadImagem(imgDataUrl);
+      apLog(`📤 Agendando no Buffer...`);
+      const postId = await apEnviarBuffer(bufferKey, item.textoFull, imgUrl, item.scheduledAt);
+      apLog(`✅ Agendado! ID: ${postId}`);
+      sucesso++;
+
+      // Update card badge
+      const card = document.getElementById(`ap-card-${i}`);
+      if(card) {
+        const badge = card.querySelector('span[style*="Pronto"]');
+        if(badge) { badge.textContent = '✅ Agendado'; badge.style.background='rgba(16,185,129,.15)'; badge.style.color='#34d399'; badge.style.borderColor='rgba(16,185,129,.3)'; }
+      }
+    } catch(e) {
+      apLog(`❌ Erro ao agendar ${AP_DIAS_FULL[item.data.getDay()]}: ${e.message}`);
+      falha++;
+    }
+  }
+
+  if(btn) { btn.innerHTML = '🚀 Agendar Próximos 7 Dias no Buffer'; btn.disabled = false; }
+  showToast(`✅ ${sucesso} posts agendados! ${falha > 0 ? `❌ ${falha} falharam.` : ''}`);
+  apLog(`=== Concluído: ${sucesso} agendados, ${falha} falhas ===`);
+}
+
+function apVerHistorico() {
+  switchTab('posts', document.querySelectorAll('.tab')[3]);
+}
+
+// Init auto post when tab opens (hook into switchTab)
+const _origSwitch = switchTab;
+window.switchTab = function(id, btn) {
+  _origSwitch(id, btn);
+  if(id === 'autopost') { setTimeout(apInit, 50); }
+};
 </script>
 </body>
 </html>
