@@ -2809,15 +2809,46 @@ function apGetHorario(diaSemana) {
 
 async function apGerarLegendaIA(servico, tema, tom) {
   const servicoLabel = AP_SERVICOS[servico]?.replace(/^..\s/,'') || servico;
-  const resp = await fetch('/api/claude', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      model:'claude-sonnet-4-20250514', max_tokens:800,
-      messages:[{role:'user', content:`Você é especialista em marketing para a empresa LCS Terceirização, de Porto Alegre, RS, que oferece serviços de ${servicoLabel}. Crie uma legenda para Instagram sobre o tema "${tema}" com tom "${tom}". A legenda deve ter 3-5 parágrafos curtos, ser persuasiva, usar emojis relevantes, terminar com chamada para ação (WhatsApp: (51) 99889-3033). NÃO inclua hashtags na legenda. Retorne APENAS a legenda, sem explicações.`}]
-    })
-  });
-  const data = await resp.json();
-  return data?.content?.[0]?.text || '';
+  const tomInstrucao = tom === 'profissional' ? 'formal e confiante'
+    : tom === 'engajamento' ? 'envolvente, emocional e com urgência'
+    : tom === 'educativo'  ? 'educativo e informativo, como uma dica'
+    : 'direto e objetivo, focado em resultado';
+  const prompt = `Você é especialista em marketing digital B2B de serviços terceirizados no Brasil.
+
+Crie uma legenda ELABORADA para Instagram da empresa LCS Terceirização, Porto Alegre RS.
+SERVIÇO: ${servicoLabel} | TEMA: ${tema} | TOM: ${tomInstrucao}
+CONTATO: WhatsApp (51) 99889-3033 | Site: lcsterceirizacaors.com.br
+
+ESTRUTURA:
+1. GANCHO impactante (pergunta ou afirmação forte) — 1 linha
+2. DESENVOLVIMENTO: 2-3 frases sobre diferenciais e benefícios concretos do serviço
+3. CALL-TO-ACTION direto com WhatsApp
+
+REGRAS:
+- Mencione Porto Alegre ou Grande Porto Alegre
+- Máximo 4 emojis estratégicos
+- Benefícios concretos do serviço
+- NÃO inclua hashtags
+
+Responda APENAS com a legenda, sem explicações.`;
+
+  try {
+    const resp = await fetch('/api/groq', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        max_tokens: 600,
+        messages: [{role:'user', content: prompt}]
+      })
+    });
+    const data = await resp.json();
+    const texto = data?.content?.[0]?.text || '';
+    if (!texto) throw new Error('Resposta vazia');
+    return texto;
+  } catch(e) {
+    console.error('apGerarLegendaIA erro:', e);
+    return '';
+  }
 }
 
 async function apGerarHashtags(servico) {
