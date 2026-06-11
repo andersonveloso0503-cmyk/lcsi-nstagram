@@ -2939,6 +2939,9 @@ async function apGerarPreview() {
     const horario = apGetHorario(diaSem);
     const dataStr = data.toLocaleDateString('pt-BR', {weekday:'short', day:'2-digit', month:'2-digit'});
 
+    // Delay entre chamadas para não estourar limite do Groq (429)
+    if(i > 0) await new Promise(r => setTimeout(r, 1500));
+
     apLog(`📝 Gerando legenda para ${AP_DIAS_FULL[diaSem]}...`);
 
     // Loading card
