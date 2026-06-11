@@ -59,6 +59,43 @@ const PROMPTS = {
   ]
 };
 
+async function tryImagen3(prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_KEY}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      instances: [{ prompt }],
+      parameters: { sampleCount: 1, aspectRatio: '1:1', personGeneration: 'allow_adult', safetySetting: 'block_only_high' }
+    })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+  if (!b64) throw new Error('Sem imagem');
+  return `data:image/png;base64,${b64}`;
+}
+
+async function tryGeminiFlash(prompt) {
+  // Gemini 2.0 Flash com geração de imagem nativa
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GEMINI_KEY}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+    })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  // Procura parte com inlineData (imagem)
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+  if (!imgPart) throw new Error('Sem imagem no flash');
+  return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -72,34 +109,33 @@ module.exports = async function handler(req, res) {
     const prompts = PROMPTS[servico] || PROMPTS.geral;
     const prompt = prompts[(dia || 0) % prompts.length];
 
-    // Gemini Imagen 3
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_KEY}`;
+    // Tenta Imagen 3 primeiro, fallback para Gemini Flash
+    let imageData = null;
+    const errors = [];
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        instances: [{ prompt }],
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: '1:1',
-          personGeneration: 'allow_adult',
-          safetySetting: 'block_only_high'
-        }
-      })
-    });
+    try {
+      imageData = await tryImagen3(prompt);
+      console.log('Imagen 3 success');
+    } catch(e) {
+      errors.push('Imagen3: ' + e.message);
+      console.warn('Imagen 3 falhou, tentando Gemini Flash:', e.message);
+      try {
+        imageData = await tryGeminiFlash(prompt);
+        console.log('Gemini Flash success');
+      } catch(e2) {
+        errors.push('Flash: ' + e2.message);
+        console.error('Gemini Flash também falhou:', e2.message);
+      }
+    }
 
-    const data = await response.json();
+    if (!imageData) {
+      return res.status(500).json({ error: 'Ambos modelos falharam', details: errors });
+    }
 
-    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-
-    const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-    if (!b64) throw new Error('Nenhuma imagem retornada pelo Gemini Imagen');
-
-    res.status(200).json({ imageData: `data:image/png;base64,${b64}` });
+    res.status(200).json({ imageData });
 
   } catch (err) {
-    console.error('Gemini Imagen error:', err.message);
+    console.error('pexels handler error:', err.message);
     res.status(500).json({ error: err.message });
   }
 }
