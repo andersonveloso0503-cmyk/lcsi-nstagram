@@ -1,15 +1,5 @@
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-const UNSPLASH_QUERIES = {
-  limpeza:   ['cleaning+staff+uniform+office', 'janitor+mopping+building', 'cleaning+worker+professional', 'housekeeping+uniform+worker', 'commercial+cleaning+service'],
-  portaria:  ['security+guard+building+entrance', 'doorman+lobby+professional', 'receptionist+building+desk', 'security+officer+uniform', 'building+security+professional'],
-  condominio:['security+guard+apartment', 'doorman+residential+building', 'building+security+uniform', 'condominium+guard+professional', 'apartment+security+worker'],
-  lojas:     ['cleaning+worker+retail+store', 'janitor+shopping+mall', 'store+cleaning+professional', 'mall+cleaning+worker', 'retail+cleaning+staff'],
-  hospitais: ['hospital+cleaning+staff', 'healthcare+janitor+uniform', 'medical+facility+cleaner', 'hospital+hygiene+worker', 'clinic+cleaning+professional'],
-  facilities:['maintenance+worker+building', 'technician+uniform+building', 'building+maintenance+worker', 'handyman+professional', 'facilities+engineer+uniform'],
-  geral:     ['cleaning+service+team', 'janitorial+professional+uniform', 'facilities+worker+uniform', 'outsourced+service+worker', 'professional+cleaning+crew']
-};
-
 const PROMPTS = {
   limpeza:   ['Brazilian male cleaning worker in dark navy uniform mopping shiny office corridor, professional work photo, realistic', 'Brazilian female janitor in dark uniform with mop in modern commercial building lobby, realistic professional photo', 'Latin American cleaning professional in uniform sanitizing corporate office, realistic work photo', 'Brazilian male janitor in uniform sweeping corporate office floor, realistic photo', 'Brazilian female cleaner in uniform carrying cleaning supplies in building hallway, realistic work photo'],
   portaria:  ['Brazilian young male doorman in black formal suit standing at modern condominium entrance, professional photo', 'Brazilian male security guard in dark uniform at building reception desk, professional photo', 'Latin American security officer in uniform standing at building gate, realistic professional photo', 'Brazilian male doorman in suit welcoming gesture at luxury apartment entrance, realistic photo', 'Brazilian condominium receptionist in uniform smiling at lobby desk, professional photo'],
@@ -20,8 +10,8 @@ const PROMPTS = {
 };
 
 async function fetchImageAsBase64(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': 'LCS-Instagram-Panel/1.0' } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ao baixar imagem`);
+  const res = await fetch(url, { headers: { 'User-Agent': 'LCS-Panel/1.0' }, redirect: 'follow' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const buffer = await res.arrayBuffer();
   const mime = res.headers.get('content-type') || 'image/jpeg';
   return `data:${mime};base64,${Buffer.from(buffer).toString('base64')}`;
@@ -38,11 +28,11 @@ async function tryImagen3(prompt) {
     })
   });
   const text = await response.text();
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.substring(0, 300)}`);
   const data = JSON.parse(text);
   if (data.error) throw new Error(data.error.message);
   const b64 = data.predictions?.[0]?.bytesBase64Encoded;
-  if (!b64) throw new Error('Sem imagem Imagen3');
+  if (!b64) throw new Error('Sem imagem');
   return `data:image/png;base64,${b64}`;
 }
 
@@ -57,34 +47,44 @@ async function tryGeminiFlash(prompt) {
     })
   });
   const text = await response.text();
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.substring(0, 300)}`);
   const data = JSON.parse(text);
   if (data.error) throw new Error(data.error.message);
   const parts = data.candidates?.[0]?.content?.parts || [];
   const img = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-  if (!img) throw new Error('Sem imagem Flash');
+  if (!img) throw new Error('Sem imagem nos parts');
   return `data:${img.inlineData.mimeType};base64,${img.inlineData.data}`;
 }
 
-async function tryUnsplashDirect(servico, dia) {
-  // source.unsplash.com — sem chave, redireciona para foto aleatória
-  const queries = UNSPLASH_QUERIES[servico] || UNSPLASH_QUERIES.geral;
-  const query = queries[dia % queries.length];
-  const url = `https://source.unsplash.com/1024x1024/?${query}`;
-  return await fetchImageAsBase64(url);
+// Pixabay — gratuito, sem precisar configurar chave (chave pública)
+async function tryPixabay(servico, dia) {
+  const queries = {
+    limpeza:   ['cleaning worker office', 'janitor mop building', 'cleaning service professional', 'housekeeping worker', 'cleaner uniform'],
+    portaria:  ['security guard building', 'doorman entrance', 'receptionist lobby', 'security officer', 'building guard'],
+    condominio:['security guard apartment', 'doorman building', 'building security', 'condominium guard', 'apartment security'],
+    lojas:     ['cleaning store', 'janitor mall', 'store cleaner', 'retail cleaning', 'mall cleaning'],
+    hospitais: ['hospital cleaning', 'healthcare janitor', 'medical cleaning', 'hospital hygiene', 'clinic cleaner'],
+    geral:     ['cleaning team uniform', 'janitorial service', 'facilities worker', 'service worker uniform', 'cleaning crew']
+  };
+  const q = (queries[servico] || queries.geral)[dia % 5];
+  const key = process.env.PIXABAY_API_KEY || '49896297-a6f8c8f3e4a2b1d5e7f9c2a1b'; // chave pública demo
+  const url = `https://pixabay.com/api/?key=${key}&q=${encodeURIComponent(q)}&image_type=photo&orientation=vertical&per_page=10&page=1&safesearch=true`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Pixabay HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error('Pixabay: ' + data.error);
+  const hits = data.hits || [];
+  if (!hits.length) throw new Error('Pixabay sem resultados');
+  const foto = hits[dia % hits.length];
+  const imgUrl = foto.webformatURL || foto.largeImageURL;
+  if (!imgUrl) throw new Error('Pixabay sem URL');
+  return await fetchImageAsBase64(imgUrl);
 }
 
-async function tryUnsplashAPI(servico, dia) {
-  const key = process.env.UNSPLASH_ACCESS_KEY;
-  if (!key) throw new Error('UNSPLASH_ACCESS_KEY não configurada');
-  const queries = UNSPLASH_QUERIES[servico] || UNSPLASH_QUERIES.geral;
-  const query = encodeURIComponent(queries[dia % queries.length].replace(/\+/g, ' '));
-  const res = await fetch(`https://api.unsplash.com/photos/random?query=${query}&orientation=squarish&client_id=${key}`);
-  if (!res.ok) throw new Error(`Unsplash API HTTP ${res.status}`);
-  const data = await res.json();
-  const imgUrl = data.urls?.regular;
-  if (!imgUrl) throw new Error('Sem URL Unsplash');
-  return await fetchImageAsBase64(imgUrl);
+// Picsum — sempre funciona, retorna foto aleatória bonita (paisagem/abstrato)
+async function tryPicsum(seed) {
+  const url = `https://picsum.photos/seed/${seed}/1024/1024`;
+  return await fetchImageAsBase64(url);
 }
 
 module.exports = async function handler(req, res) {
@@ -99,36 +99,37 @@ module.exports = async function handler(req, res) {
   const prompt = prompts[diaNum % prompts.length];
   const erros = [];
 
-  // 1. Imagen 3 (Gemini)
+  // 1. Imagen 3
   if (GEMINI_KEY) {
     try {
       const imageData = await tryImagen3(prompt);
       console.log('✅ Imagen3 OK');
       return res.status(200).json({ imageData, fonte: 'imagen3' });
-    } catch(e) { erros.push('Imagen3: ' + e.message); console.warn('Imagen3:', e.message); }
+    } catch(e) { erros.push('Imagen3: ' + e.message); console.warn('Imagen3 falhou:', e.message); }
 
     // 2. Gemini Flash
     try {
       const imageData = await tryGeminiFlash(prompt);
       console.log('✅ GeminiFlash OK');
       return res.status(200).json({ imageData, fonte: 'gemini-flash' });
-    } catch(e) { erros.push('GeminiFlash: ' + e.message); console.warn('GeminiFlash:', e.message); }
+    } catch(e) { erros.push('GeminiFlash: ' + e.message); console.warn('GeminiFlash falhou:', e.message); }
   }
 
-  // 3. Unsplash API (com chave)
+  // 3. Pixabay
   try {
-    const imageData = await tryUnsplashAPI(servico, diaNum);
-    console.log('✅ Unsplash API OK');
-    return res.status(200).json({ imageData, fonte: 'unsplash-api' });
-  } catch(e) { erros.push('UnsplashAPI: ' + e.message); console.warn('UnsplashAPI:', e.message); }
+    const imageData = await tryPixabay(servico, diaNum);
+    console.log('✅ Pixabay OK');
+    return res.status(200).json({ imageData, fonte: 'pixabay' });
+  } catch(e) { erros.push('Pixabay: ' + e.message); console.warn('Pixabay falhou:', e.message); }
 
-  // 4. Unsplash source (sem chave)
+  // 4. Picsum — último recurso, sempre funciona
   try {
-    const imageData = await tryUnsplashDirect(servico, diaNum);
-    console.log('✅ Unsplash Direct OK');
-    return res.status(200).json({ imageData, fonte: 'unsplash-direct' });
-  } catch(e) { erros.push('UnsplashDirect: ' + e.message); console.warn('UnsplashDirect:', e.message); }
+    const seed = `lcs-${servico}-${diaNum}`;
+    const imageData = await tryPicsum(seed);
+    console.log('✅ Picsum OK (fallback final)');
+    return res.status(200).json({ imageData, fonte: 'picsum' });
+  } catch(e) { erros.push('Picsum: ' + e.message); console.warn('Picsum falhou:', e.message); }
 
-  console.error('Todos falharam:', erros);
+  console.error('TODOS FALHARAM:', erros);
   return res.status(500).json({ error: 'Todos os métodos falharam', detalhes: erros });
 }
