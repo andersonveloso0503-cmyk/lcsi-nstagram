@@ -735,7 +735,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div>
           <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Chave Buffer API</label>
-          <input type="password" id="ap-buffer-key" placeholder="Cole sua chave Buffer" style="margin-top:4px;">
+          <input type="password" id="ap-buffer-key" placeholder="Carregando automaticamente..." style="margin-top:4px;opacity:.7;" title="Carregada automaticamente do painel">
         </div>
         <div>
           <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Melhor horário de postagem</label>
@@ -2691,12 +2691,16 @@ function apInit() {
 }
 
 function apRestaurarConfig() {
-  const savedKey = localStorage.getItem('ap_buffer_key') || '';
+  // Pega chave do localStorage, ou do campo da aba 30 Dias, ou usa o hardcoded do painel
+  const savedKey = localStorage.getItem('ap_buffer_key')
+    || document.getElementById('buffer-key')?.value?.trim()
+    || '7bapnxk-EY4t_nyw8veZ4x7Gv2j1oWQsiemb8kELYbj';
   const savedHorario = localStorage.getItem('ap_horario') || 'auto';
   const apKeyEl = document.getElementById('ap-buffer-key');
   const apHorEl = document.getElementById('ap-horario');
-  if(apKeyEl && savedKey) apKeyEl.value = savedKey;
+  if(apKeyEl) apKeyEl.value = savedKey;
   if(apHorEl) apHorEl.value = savedHorario;
+  if(savedKey) localStorage.setItem('ap_buffer_key', savedKey);
 }
 
 function apAtualizarBadge() {
@@ -2926,20 +2930,29 @@ async function apGerarPreview() {
 
       apPreviewData[i] = { cfg, data: schedDate, scheduledAt, legenda, tags, textoFull, servico: cfg.servico };
 
-      // Update card
+      // Update card — legenda completa + placeholder imagem
       const card = document.getElementById(cardId);
+      const emoji = cfg.servico==='condominio'?'🏢':cfg.servico==='portaria'?'🚪':cfg.servico==='limpeza'?'🧹':cfg.servico==='lojas'?'🛍️':'🏥';
       if(card) card.innerHTML = `
-        <div style="width:52px;height:52px;border-radius:8px;background:linear-gradient(135deg,rgba(99,102,241,.3),rgba(16,185,129,.2));flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;">${cfg.servico==='condominio'?'🏢':cfg.servico==='portaria'?'🚪':cfg.servico==='limpeza'?'🧹':cfg.servico==='lojas'?'🛍️':'🏥'}</div>
+        <div id="img-thumb-${i}" style="width:90px;min-width:90px;height:90px;border-radius:10px;background:rgba(255,255,255,.06);flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:30px;">${emoji}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;font-weight:700;color:#a5b4fc;margin-bottom:4px;">${AP_DIAS_FULL[diaSem]}, ${dataStr} • ${horario} • ${AP_SERVICOS[cfg.servico]?.replace(/^..\s/,'')} • <em>${cfg.tema}</em></div>
-          <div style="font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${legenda.substring(0,180)}...</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px;">${tags.slice(0,4).join(' ')} ...</div>
+          <div style="font-size:11px;font-weight:700;color:#a5b4fc;margin-bottom:6px;">${AP_DIAS_FULL[diaSem]}, ${dataStr} • ${horario} • ${AP_SERVICOS[cfg.servico]?.replace(/^..\s/,'')} • <em>${cfg.tema}</em></div>
+          <div style="font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap;max-height:140px;overflow-y:auto;padding-right:4px;">${legenda}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.6;">${tags.join(' ')}</div>
         </div>
-        <div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px;">
-          <span style="padding:2px 8px;border-radius:10px;font-size:10px;background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);">✏️ Pronto</span>
+        <div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+          <span id="badge-${i}" style="padding:2px 8px;border-radius:10px;font-size:10px;background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);">✏️ Pronto</span>
         </div>`;
 
-      apLog(`✅ ${AP_DIAS_FULL[diaSem]} pronto.`);
+      apLog(`✅ ${AP_DIAS_FULL[diaSem]} pronto. Gerando imagem...`);
+
+      // Gerar imagem em background e colocar no thumb
+      apGerarImagem(cfg.servico, cfg.tema, legenda).then(imgUrl => {
+        apPreviewData[i].imgDataUrl = imgUrl;
+        const thumb = document.getElementById('img-thumb-' + i);
+        if(thumb && imgUrl) thumb.innerHTML = '<img src="' + imgUrl + '" style="width:100%;height:100%;object-fit:cover;">';
+        apLog('🖼️ Imagem ' + AP_DIAS_FULL[diaSem] + ' pronta.');
+      }).catch(()=>{});
     } catch(e) {
       apLog(`❌ Erro ${AP_DIAS_FULL[diaSem]}: ${e.message}`);
     }
@@ -2971,9 +2984,9 @@ async function apAgendarTudo() {
   for(let i=0; i<apPreviewData.length; i++) {
     const item = apPreviewData[i];
     if(!item) continue;
-    apLog(`📸 Gerando imagem para ${AP_DIAS_FULL[item.data.getDay()]}...`);
+    apLog(`📸 ${item.imgDataUrl ? 'Usando imagem da prévia' : 'Gerando imagem'} para ${AP_DIAS_FULL[item.data.getDay()]}...`);
     try {
-      const imgDataUrl = await apGerarImagem(item.servico, item.cfg.tema, item.legenda);
+      const imgDataUrl = item.imgDataUrl || await apGerarImagem(item.servico, item.cfg.tema, item.legenda);
       apLog(`☁️ Enviando imagem...`);
       const imgUrl = await apUploadImagem(imgDataUrl);
       apLog(`📤 Agendando no Buffer...`);
