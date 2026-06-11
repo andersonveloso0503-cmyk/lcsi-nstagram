@@ -5,8 +5,8 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const { query, variables } = req.body;
-    const key = process.env.BUFFER_API_KEY || '7bapnxk-EY4t_nyw8veZ4x7Gv2j1oWQsiemb8kELYbj';
+    const { query, variables, token } = req.body;
+    const key = token || process.env.BUFFER_API_KEY || '7bapnxk-EY4t_nyw8veZ4x7Gv2j1oWQsiemb8kELYbj';
 
     const response = await fetch('https://api.buffer.com/graphql', {
       method: 'POST',
