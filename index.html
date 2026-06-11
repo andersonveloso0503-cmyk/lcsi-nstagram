@@ -1784,6 +1784,9 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
   });
 }
 
+// Controle de fotos já usadas no Auto Post — evita repetição
+if(!window._apFotosUsadas) window._apFotosUsadas = {};
+
 async function buscarFotoIA(servico, dia, formato) {
   // 1. Prioridade: foto manualmente selecionada pelo usuário
   if(window._fotoSelecionada) {
@@ -1791,18 +1794,40 @@ async function buscarFotoIA(servico, dia, formato) {
     return f.imgFull || f.thumb || null;
   }
 
-  // 2. Buscar do IndexedDB por serviço correspondente
+  // 2. Buscar do IndexedDB por serviço correspondente — sem repetir
   try {
     const todasFotos = await idbListarFotos();
     if(todasFotos.length > 0) {
       const match = todasFotos.filter(f => f.servico === servico);
       const pool = match.length > 0 ? match : todasFotos;
-      const foto = pool[dia % pool.length];
-      // Retornar imgFull (alta qualidade) do IDB
-      // imgFull = foto original SEM texto — aplicarLogoCanvas coloca só header/footer
-      if(foto.imgFull) return foto.imgFull;
-      if(foto.imgEstilo) return foto.imgEstilo;
-      if(foto.thumb) return foto.thumb;
+
+      // Embaralha pool com seed baseada no dia para variedade
+      const shuffled = [...pool].sort((a, b) => {
+        const hashA = (a.id || a.nome || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), dia);
+        const hashB = (b.id || b.nome || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), dia);
+        return hashA - hashB;
+      });
+
+      // Pega a próxima foto não usada para este serviço
+      const chave = servico;
+      if(!window._apFotosUsadas[chave]) window._apFotosUsadas[chave] = new Set();
+      const usadas = window._apFotosUsadas[chave];
+
+      // Encontra primeira não usada
+      let foto = shuffled.find(f => !usadas.has(f.id || f.nome));
+
+      // Se todas foram usadas, reseta e recomeça
+      if(!foto) {
+        window._apFotosUsadas[chave] = new Set();
+        foto = shuffled[0];
+      }
+
+      if(foto) {
+        window._apFotosUsadas[chave].add(foto.id || foto.nome);
+        if(foto.imgFull) return foto.imgFull;
+        if(foto.imgEstilo) return foto.imgEstilo;
+        if(foto.thumb) return foto.thumb;
+      }
     }
   } catch(e) { console.warn('IDB buscarFoto:', e); }
 
@@ -2927,6 +2952,7 @@ async function apGerarPreview() {
   const list = document.getElementById('ap-preview-list');
   list.innerHTML = '';
   apPreviewData = [];
+  window._apFotosUsadas = {}; // reseta controle de fotos ao gerar nova prévia
 
   const hoje = new Date();
   apLog('Gerando prévia dos próximos 7 dias...');
