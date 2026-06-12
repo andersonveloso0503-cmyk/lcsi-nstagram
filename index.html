@@ -2670,8 +2670,11 @@ async function gerarTrintaComMinhasFotos() {
 
 // IMPORTAR DO BUFFER → MEUS POSTS
 async function importarDoBuffer() {
-  const bufferKey = localStorage.getItem('ap_buffer_key') || '';
+  let bufferKey = localStorage.getItem('ap_buffer_key')
+    || document.getElementById('ap-buffer-key')?.value?.trim()
+    || '7bapnxk-EY4t_nyw8veZ4x7Gv2j1oWQsiemb8kELYbj';
   if(!bufferKey) { showToast('⚠️ Configure a chave Buffer na aba Auto Post primeiro!'); return; }
+  localStorage.setItem('ap_buffer_key', bufferKey);
 
   const btn = document.getElementById('btn-importar-buffer');
   if(btn) { btn.innerHTML = '<span class="spinner"></span> Importando...'; btn.disabled = true; }
@@ -2690,11 +2693,12 @@ async function importarDoBuffer() {
     const postsRes = await fetch('/api/buffer', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        query: `query { posts(input: { organizationId: "${orgId}", status: [scheduled, pending] }) { edges { node { id text dueAt status channel { name service } media { url } } } } }`,
+        query: `query { posts(input: { organizationId: "${orgId}", statuses: [scheduled, pending], first: 50 }) { edges { node { id text dueAt status channel { name serviceType } media { url thumbnailUrl } } } } }`,
         token: bufferKey
       })
     });
     const postsData = await postsRes.json();
+    console.log('Buffer posts raw:', JSON.stringify(postsData).substring(0, 500));
     const edges = postsData?.data?.posts?.edges || [];
 
     if(!edges.length) {
