@@ -1794,20 +1794,22 @@ async function buscarFotoIA(servico, dia, formato) {
     return f.imgFull || f.thumb || null;
   }
 
-  // 2. Buscar do IndexedDB — rotação sequencial por serviço
+  // 2. Buscar do IndexedDB — rotação sequencial global (evita repetir independente do serviço)
   try {
     const todasFotos = await idbListarFotos();
     if(todasFotos.length > 0) {
+      // Tenta primeiro match por serviço
       const match = todasFotos.filter(f => f.servico === servico);
+      // Chave: usa serviço se tem match, senão usa pool global
+      const chavePool = match.length > 0 ? servico : '_geral';
       const pool = match.length > 0 ? match : todasFotos;
 
-      // Índice rotativo por serviço — avança a cada chamada
-      if(window._apFotoIdx[servico] === undefined) window._apFotoIdx[servico] = 0;
-      const idx = window._apFotoIdx[servico] % pool.length;
-      window._apFotoIdx[servico] = idx + 1;
+      if(window._apFotoIdx[chavePool] === undefined) window._apFotoIdx[chavePool] = 0;
+      const idx = window._apFotoIdx[chavePool] % pool.length;
+      window._apFotoIdx[chavePool] = idx + 1; // avança para próxima chamada
 
       const foto = pool[idx];
-      console.log('IDB: servico='+servico+' pool='+pool.length+' idx='+idx+' foto='+(foto?.nome||foto?.id));
+      console.log('IDB: servico='+servico+' pool='+chavePool+'('+pool.length+') idx='+idx);
       if(foto) {
         if(foto.imgFull) return foto.imgFull;
         if(foto.imgEstilo) return foto.imgEstilo;
@@ -2823,24 +2825,7 @@ async function apGerarLegendaIA(servico, tema, tom) {
     : tom === 'engajamento' ? 'envolvente, emocional e com urgência'
     : tom === 'educativo'  ? 'educativo e informativo, como uma dica'
     : 'direto e objetivo, focado em resultado';
-  const prompt = `Você é especialista em marketing digital B2B de serviços terceirizados no Brasil.
-
-Crie uma legenda ELABORADA para Instagram da empresa LCS Terceirização, Porto Alegre RS.
-SERVIÇO: ${servicoLabel} | TEMA: ${tema} | TOM: ${tomInstrucao}
-CONTATO: WhatsApp (51) 99889-3033 | Site: lcsterceirizacaors.com.br
-
-ESTRUTURA:
-1. GANCHO impactante (pergunta ou afirmação forte) — 1 linha
-2. DESENVOLVIMENTO: 2-3 frases sobre diferenciais e benefícios concretos do serviço
-3. CALL-TO-ACTION direto com WhatsApp
-
-REGRAS:
-- Mencione Porto Alegre ou Grande Porto Alegre
-- Máximo 4 emojis estratégicos
-- Benefícios concretos do serviço
-- NÃO inclua hashtags
-
-Responda APENAS com a legenda, sem explicações.`;
+  const prompt = `Marketing Instagram para LCS Terceirização, Porto Alegre RS. Serviço: ${servicoLabel}. Tema: ${tema}. Tom: ${tomInstrucao}. Crie legenda com: gancho forte, 2-3 frases de benefícios, call-to-action com WhatsApp (51) 99889-3033. Mencione Porto Alegre. Máx 4 emojis. SEM hashtags. Responda APENAS a legenda.`;
 
   try {
     const resp = await fetch('/api/groq', {
