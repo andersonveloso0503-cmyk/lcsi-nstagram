@@ -1088,7 +1088,7 @@ function renderPosts(filtro='todos') {
       <div class="post-thumb" style="background:var(--surface2);">${p.emoji}</div>
       <div class="post-info">
         <div class="post-title">${p.legenda.substring(0,80)}${p.legenda.length>80?'...':''}</div>
-        <div class="post-meta">${p.servico} · ${p.data}${p.hora?' às '+p.hora:''}</div>
+        <div class="post-meta">${p.fonte==='autopost'?'<span style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:1px 6px;font-size:10px;margin-right:4px;">🤖 Auto</span>':''}${p.servico} · ${p.data}${p.hora?' às '+p.hora:''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="post-status status-${p.status}">${p.status==='agendado'?'📅 Agendado':p.status==='publicado'?'✅ Publicado':'📝 Rascunho'}</span>
@@ -3023,6 +3023,25 @@ async function apAgendarTudo() {
       const postId = await apEnviarBuffer(bufferKey, item.textoFull, imgUrl, item.scheduledAt);
       apLog(`✅ Agendado! ID: ${postId}`);
       sucesso++;
+
+      // Salva em Meus Posts
+      const dataPost = new Date(item.scheduledAt);
+      const postObj = {
+        id: Date.now() + i,
+        legenda: item.legenda,
+        tags: item.tags,
+        status: 'agendado',
+        data: dataPost.toLocaleDateString('pt-BR'),
+        dataISO: dataPost.toISOString().split('T')[0],
+        hora: dataPost.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}),
+        servico: AP_SERVICOS[item.servico]?.replace(/^..\s/,'') || item.servico,
+        emoji: item.servico==='limpeza'?'🧹':item.servico==='portaria'?'🚪':item.servico==='condominio'?'🏢':item.servico==='lojas'?'🛍️':'🏥',
+        bufferId: postId,
+        fonte: 'autopost',
+        imgThumb: item.imgDataUrl ? item.imgDataUrl.substring(0, 100) : ''
+      };
+      posts.unshift(postObj);
+      salvar();
 
       // Update card badge
       const card = document.getElementById(`ap-card-${i}`);
