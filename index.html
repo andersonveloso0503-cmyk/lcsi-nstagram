@@ -2693,7 +2693,7 @@ async function importarDoBuffer() {
     const postsRes = await fetch('/api/buffer', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        query: `query { posts(input: { organizationId: "${orgId}", statuses: [scheduled, pending], first: 50 }) { edges { node { id text dueAt status channel { name serviceType } media { url thumbnailUrl } } } } }`,
+        query: `query { posts(input: { organizationId: "${orgId}", status: scheduled }) { edges { node { id text dueAt status channel { name service } media { url } } } } }`,
         token: bufferKey
       })
     });
