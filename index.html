@@ -533,7 +533,10 @@
         <button class="btn btn-secondary btn-sm" onclick="filtrarPosts('publicado')" id="f-publicado">Publicados</button>
         <button class="btn btn-secondary btn-sm" onclick="filtrarPosts('rascunho')" id="f-rascunho">Rascunhos</button>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="switchTab('gerador', document.querySelector('.tab'))">+ Novo Post</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary btn-sm" id="btn-importar-buffer" onclick="importarDoBuffer()">📥 Importar do Buffer</button>
+        <button class="btn btn-primary btn-sm" onclick="switchTab('gerador', document.querySelector('.tab'))">+ Novo Post</button>
+      </div>
     </div>
     <div class="post-list" id="post-list-container">
       <p style="color:var(--muted); text-align:center; padding:40px;">Nenhum post ainda. Gere seu primeiro post! ✨</p>
@@ -2663,6 +2666,97 @@ async function gerarTrintaComMinhasFotos() {
   
   // Auto-start generation
   await gerarTrintaDias();
+}
+
+// IMPORTAR DO BUFFER → MEUS POSTS
+async function importarDoBuffer() {
+  const bufferKey = localStorage.getItem('ap_buffer_key') || '';
+  if(!bufferKey) { showToast('⚠️ Configure a chave Buffer na aba Auto Post primeiro!'); return; }
+
+  const btn = document.getElementById('btn-importar-buffer');
+  if(btn) { btn.innerHTML = '<span class="spinner"></span> Importando...'; btn.disabled = true; }
+
+  try {
+    // Busca organização
+    const orgRes = await fetch('/api/buffer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ query:`query { account { organizations { id name } } }`, token: bufferKey })
+    });
+    const orgData = await orgRes.json();
+    const orgId = orgData?.data?.account?.organizations?.[0]?.id;
+    if(!orgId) throw new Error('Organização não encontrada');
+
+    // Busca posts agendados do Buffer
+    const postsRes = await fetch('/api/buffer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        query: `query { posts(input: { organizationId: "${orgId}", status: [scheduled, pending] }) { edges { node { id text dueAt status channel { name service } media { url } } } } }`,
+        token: bufferKey
+      })
+    });
+    const postsData = await postsRes.json();
+    const edges = postsData?.data?.posts?.edges || [];
+
+    if(!edges.length) {
+      showToast('Nenhum post agendado encontrado no Buffer.');
+      return;
+    }
+
+    // Filtra posts que já não estão salvos localmente
+    const idsExistentes = new Set(posts.map(p => p.bufferId).filter(Boolean));
+    let importados = 0;
+
+    edges.forEach(({ node }) => {
+      if(idsExistentes.has(node.id)) return; // já existe
+
+      const dueAt = node.dueAt ? new Date(node.dueAt) : new Date();
+      const texto = node.text || '';
+      // Separa legenda das hashtags
+      const linhas = texto.split('\n');
+      const tagLine = linhas.find(l => l.trim().startsWith('#')) || '';
+      const legenda = linhas.filter(l => !l.trim().startsWith('#')).join('\n').trim();
+      const tags = tagLine.split(' ').filter(t => t.startsWith('#'));
+
+      // Detecta serviço pelo texto
+      const textoLower = texto.toLowerCase();
+      let servico = 'Geral', emoji = '📷';
+      if(textoLower.includes('portaria') || textoLower.includes('porteiro')) { servico = 'Portaria'; emoji = '🚪'; }
+      else if(textoLower.includes('limpeza') || textoLower.includes('faxina')) { servico = 'Limpeza'; emoji = '🧹'; }
+      else if(textoLower.includes('condomínio') || textoLower.includes('sindico')) { servico = 'Condomínio'; emoji = '🏢'; }
+      else if(textoLower.includes('loja') || textoLower.includes('comércio')) { servico = 'Lojas'; emoji = '🛍️'; }
+      else if(textoLower.includes('hospital') || textoLower.includes('clínica')) { servico = 'Hospitais'; emoji = '🏥'; }
+
+      const post = {
+        id: Date.now() + Math.random(),
+        legenda: legenda || texto.substring(0, 200),
+        tags,
+        status: 'agendado',
+        data: dueAt.toLocaleDateString('pt-BR'),
+        dataISO: dueAt.toISOString().split('T')[0],
+        hora: dueAt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+        servico,
+        emoji,
+        bufferId: node.id,
+        fonte: 'autopost'
+      };
+      posts.unshift(post);
+      importados++;
+    });
+
+    if(importados > 0) {
+      salvar();
+      renderPosts();
+      showToast(`✅ ${importados} posts importados do Buffer!`);
+    } else {
+      showToast('Todos os posts do Buffer já estão em Meus Posts.');
+    }
+
+  } catch(e) {
+    console.error('Erro importar Buffer:', e);
+    showToast('❌ Erro: ' + e.message);
+  } finally {
+    if(btn) { btn.innerHTML = '📥 Importar do Buffer'; btn.disabled = false; }
+  }
 }
 
 // INIT
