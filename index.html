@@ -424,6 +424,8 @@
         <label>Data do post (opcional)</label>
         <input type="date" id="data-post">
 
+        <button class="btn btn-secondary btn-full" onclick="gerarCarrossel()" style="margin-bottom:8px;">🎠 Gerar Carrossel (3 slides)</button>
+        <button class="btn btn-secondary btn-full" onclick="gerarStory()" style="margin-bottom:8px;">📱 Gerar Story</button>
         <button class="btn btn-primary btn-full" onclick="gerarPost()">
           <span id="btn-gerar-txt">✨ Gerar com IA</span>
         </button>
@@ -487,6 +489,39 @@
             Formato 1024×1024px — ideal para feed do Instagram.<br>
             Após baixar, publique direto no <strong>@lcs_terceirizacao</strong>.
           </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARROSSEL PREVIEW -->
+    <div id="carrossel-preview" class="card" style="display:none;margin-top:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;"><span>🎠</span> Carrossel — 3 Slides</h3>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="baixarCarrossel()">⬇️ Baixar Slides</button>
+          <button class="btn btn-primary btn-sm" onclick="agendarCarrosselBuffer()">📤 Enviar ao Buffer</button>
+        </div>
+      </div>
+      <div id="carrossel-slides" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;"></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;">💡 Baixe os 3 slides e publique como carrossel no Instagram. O Buffer agenda automaticamente.</p>
+    </div>
+
+    <!-- STORY PREVIEW -->
+    <div id="story-preview" class="card" style="display:none;margin-top:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;"><span>📱</span> Story Gerado</h3>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="baixarStory()">⬇️ Baixar Story</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div style="width:200px;flex-shrink:0;border-radius:12px;overflow:hidden;border:2px solid var(--border);">
+          <img id="story-img" style="width:100%;display:block;">
+        </div>
+        <div style="flex:1;">
+          <p style="font-size:13px;color:var(--text);line-height:1.6;">✅ Story no formato <strong>1080×1920px</strong> (9:16) — ideal para Instagram Stories.</p>
+          <p style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;">📌 Inclui:<br>• Gancho impactante<br>• Enquete interativa<br>• CTA com WhatsApp<br>• Logo e contato LCS</p>
+          <p style="font-size:12px;color:var(--muted);margin-top:8px;">Baixe e publique direto no <strong>@lcs_terceirizacao</strong>.</p>
         </div>
       </div>
     </div>
@@ -742,6 +777,14 @@
           <input type="password" id="ap-buffer-key" placeholder="Carregando automaticamente..." style="margin-top:4px;opacity:.7;" title="Carregada automaticamente do painel">
         </div>
         <div>
+          <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Tipo de post</label>
+          <select id="ap-tipo-post" style="margin-top:4px;">
+            <option value="post">🖼️ Imagem única</option>
+            <option value="carrossel">🎠 Carrossel 3 slides</option>
+            <option value="story">📱 Post + Story</option>
+          </select>
+        </div>
+        <div>
           <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Melhor horário de postagem</label>
           <select id="ap-horario" style="margin-top:4px;">
             <option value="auto">🤖 IA escolhe automaticamente</option>
@@ -894,7 +937,7 @@ async function gerarPost() {
     geral: '#terceirizacao,#terceirizacaors,#lcsterceirizacao,#portoalegre,#serviçosterceirizados'
   };
 
-  const hashtagsBase = '#lcsterceirizacao,#terceirizacaors,#portoalegre,#grandeportoalegre,#sindicos,#condominio,#lojas,#estabelecimentos,#hospitais';
+  const hashtagsBase = '#lcsterceirizacao #terceirizacaors #terceirizacao #portoalegre #grandeportoalegre #facilitiesportoalegre #condominio #sindicos #lojas #estabelecimentos #hospitais #clinicas #imobiliarias #shoppings #empresas #facilities';
   const hashtagsSegmento = segmentoHashtags[servico] || '';
 
   const segAlvoPost = servico === 'condominio' ? 'Síndicos e administradoras de condomínio' : servico === 'lojas' ? 'Donos de lojas, estabelecimentos comerciais e shoppings' : servico === 'hospitais' ? 'Hospitais, clínicas e estabelecimentos de saúde' : 'Empresas e condomínios em geral';
@@ -922,7 +965,7 @@ REGRAS:
 - Máximo 3 emojis estratégicos
 - Benefícios concretos de ${servicoLabel.replace(/[^\w\s]/gi,'')}
 ${comHashtags ? `- Liste hashtags após ---HASHTAGS---. Obrigatórias: ${hashtagsBase} | Segmento: ${hashtagsSegmento}` : ''}
-
+\n- ÚLTIMA LINHA: termine com pergunta curta para engajar comentários (ex: Você já terceiriza? 👇)\n
 Responda APENAS com a legenda estruturada.`;
 
   const box = document.getElementById('output-legenda');
@@ -1786,6 +1829,226 @@ async function aplicarLogoCanvas(fotoData, servico, legenda) {
     img.onerror = () => resolve(fotoData);
     img.src = fotoData;
   });
+}
+
+
+// ============================================================
+// GERAÇÃO DE CARROSSEL — 3 slides (capa + benefícios + CTA)
+// ============================================================
+
+async function gerarCarrosselIA(servico, tema, legenda, fotoData) {
+  const slides = [];
+
+  // SLIDE 1 — Capa com foto + logo LCS
+  const capa = fotoData ? await aplicarLogoCanvas(fotoData, servico, legenda) : await gerarSlideTexto(servico, 'capa', legenda, null);
+  slides.push(capa);
+
+  // Gera conteúdo dos slides 2 e 3 via IA
+  const servicoLabel = AP_SERVICOS?.[servico]?.replace(/^..\s/,'') || servico;
+  const promptSlides = `Para a empresa LCS Terceirização (Porto Alegre RS), serviço de ${servicoLabel}, tema "${tema}", gere conteúdo para 2 slides de carrossel Instagram em JSON:
+{
+  "slide2": {
+    "titulo": "título curto impactante (máx 5 palavras)",
+    "beneficios": ["benefício 1 curto", "benefício 2 curto", "benefício 3 curto"]
+  },
+  "slide3": {
+    "chamada": "frase CTA forte (máx 8 palavras)",
+    "pergunta": "pergunta de engajamento curta para comentários"
+  }
+}
+Responda APENAS o JSON, sem explicações.`;
+
+  let slide2Data = null, slide3Data = null;
+  try {
+    const resp = await fetch('/api/groq', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'llama-3.1-8b-instant', max_tokens:400, messages:[{role:'user', content:promptSlides}] })
+    });
+    const data = await resp.json();
+    const texto = data?.content?.[0]?.text || '';
+    const clean = texto.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+    slide2Data = parsed.slide2;
+    slide3Data = parsed.slide3;
+  } catch(e) {
+    slide2Data = { titulo: 'Por que nos escolher?', beneficios: ['Equipe treinada e uniformizada', 'Atendimento 24h em Porto Alegre', 'Contrato flexível sem burocracia'] };
+    slide3Data = { chamada: 'Fale conosco agora!', pergunta: 'Você já conhece a LCS Terceirização? 👇' };
+  }
+
+  // SLIDE 2 — Benefícios
+  slides.push(await gerarSlideTexto(servico, 'beneficios', slide2Data.titulo, slide2Data.beneficios));
+
+  // SLIDE 3 — CTA
+  slides.push(await gerarSlideTexto(servico, 'cta', slide3Data.chamada, slide3Data.pergunta));
+
+  return slides;
+}
+
+function gerarSlideTexto(servico, tipo, titulo, conteudo) {
+  return new Promise((resolve) => {
+    const W = 1024, H = 1024;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    // Cores por serviço
+    const cores = {
+      limpeza:   { bg: '#0f172a', accent: '#3b82f6', accent2: '#1e40af' },
+      portaria:  { bg: '#0f172a', accent: '#b91c1c', accent2: '#7f1d1d' },
+      condominio:{ bg: '#0f172a', accent: '#b91c1c', accent2: '#7f1d1d' },
+      lojas:     { bg: '#0f172a', accent: '#7c3aed', accent2: '#4c1d95' },
+      hospitais: { bg: '#0f172a', accent: '#059669', accent2: '#064e3b' },
+      geral:     { bg: '#0f172a', accent: '#b91c1c', accent2: '#7f1d1d' }
+    };
+    const c = cores[servico] || cores.geral;
+
+    // Fundo escuro
+    ctx.fillStyle = c.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Gradiente decorativo
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, c.accent2 + '40');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Linha decorativa topo
+    ctx.fillStyle = c.accent;
+    ctx.fillRect(0, 0, W, 8);
+
+    // Header LCS
+    const BAR = 84;
+    ctx.fillStyle = 'rgba(185,28,28,0.95)';
+    ctx.fillRect(0, 0, W, BAR);
+    try { ctx.drawImage(_logoCache, 8, 6, 72, 72); } catch(e){}
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('LCS Terceirização', 92, 38);
+    ctx.font = '17px Arial';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText('Limpeza  •  Portaria  •  Facilities', 92, 64);
+
+    if(tipo === 'capa') {
+      // Fallback capa sem foto
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.round(W*0.065)}px Arial`;
+      ctx.textAlign = 'center';
+      wrapText(ctx, titulo || 'Serviços de Excelência', W/2, H/2 - 40, W*0.85, Math.round(W*0.075));
+      ctx.font = `${Math.round(W*0.032)}px Arial`;
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText('Porto Alegre e Grande Porto Alegre', W/2, H/2 + 80);
+    } else if(tipo === 'beneficios') {
+      // Título
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.round(W*0.052)}px Arial`;
+      ctx.textAlign = 'center';
+      wrapText(ctx, titulo || '', W/2, 200, W*0.85, Math.round(W*0.06));
+
+      // Linha separadora
+      ctx.fillStyle = c.accent;
+      ctx.fillRect(W*0.1, 270, W*0.8, 4);
+
+      // Benefícios
+      const bens = Array.isArray(conteudo) ? conteudo : [];
+      bens.forEach((b, i) => {
+        const y = 360 + i * 170;
+        // Ícone checkmark
+        ctx.fillStyle = c.accent;
+        ctx.beginPath();
+        ctx.arc(W*0.12, y, 28, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('✓', W*0.12, y+10);
+        // Texto
+        ctx.fillStyle = '#fff';
+        ctx.font = `${Math.round(W*0.038)}px Arial`;
+        ctx.textAlign = 'left';
+        wrapText(ctx, b, W*0.2, y+10, W*0.75, Math.round(W*0.044));
+      });
+    } else if(tipo === 'cta') {
+      // Chamada principal
+      ctx.fillStyle = c.accent;
+      ctx.font = `bold ${Math.round(W*0.06)}px Arial`;
+      ctx.textAlign = 'center';
+      wrapText(ctx, titulo || 'Fale conosco!', W/2, 280, W*0.85, Math.round(W*0.07));
+
+      // WhatsApp button visual
+      ctx.fillStyle = '#25d366';
+      roundRect(ctx, W*0.15, 400, W*0.7, 100, 20);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.round(W*0.038)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText('📱 (51) 99889-3033', W/2, 462);
+
+      // Site
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = `${Math.round(W*0.025)}px Arial`;
+      ctx.fillText('lcsterceirizacaors.com.br', W/2, 560);
+
+      // Pergunta engajamento
+      ctx.fillStyle = '#fff';
+      ctx.font = `${Math.round(W*0.036)}px Arial`;
+      wrapText(ctx, conteudo || 'Você já conhece a LCS? 👇', W/2, 680, W*0.85, Math.round(W*0.042));
+
+      // Número do slide
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '22px Arial';
+      ctx.fillText('3/3', W/2, 820);
+    }
+
+    // Footer
+    ctx.fillStyle = 'rgba(185,28,28,0.95)';
+    ctx.fillRect(0, H-72, W, 72);
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.round(W*0.024)}px Arial`;
+    ctx.textAlign = 'left';
+    ctx.fillText('📱 (51) 99889-3033', W*0.025, H-72+34);
+    ctx.textAlign = 'right';
+    ctx.fillText('@lcs_terceirizacao', W*0.975, H-72+34);
+    ctx.textAlign = 'center';
+    ctx.font = `${Math.round(W*0.017)}px Arial`;
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillText('lcsterceirizacaors.com.br', W/2, H-72+60);
+
+    resolve(cv.toDataURL('image/jpeg', 0.92));
+  });
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  if(!text) return;
+  const words = text.split(' ');
+  let line = '';
+  let currentY = y;
+  for(let i=0; i<words.length; i++) {
+    const testLine = line + words[i] + ' ';
+    if(ctx.measureText(testLine).width > maxWidth && i > 0) {
+      ctx.fillText(line.trim(), x, currentY);
+      line = words[i] + ' ';
+      currentY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line.trim(), x, currentY);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
 }
 
 // Controle de índice por serviço — rotação sequencial sem repetir
@@ -2876,6 +3139,298 @@ async function importarDoBuffer() {
 updateStats();
 renderCalendario();
 
+
+
+// ============================================================
+// GERAÇÃO DE STORIES
+// ============================================================
+
+async function gerarStoriesIA(servico, tema, legenda) {
+  const servicoLabel = AP_SERVICOS?.[servico]?.replace(/^..\s/,'') || servico;
+
+  // Gera conteúdo do story via IA
+  const prompt = `Para LCS Terceirização, Porto Alegre RS, serviço ${servicoLabel}, crie conteúdo para 1 Story Instagram em JSON:
+{
+  "gancho": "frase curta impactante para o story (máx 6 palavras, maiúsculas)",
+  "subtexto": "frase complementar curta (máx 8 palavras)",
+  "enquete": { "pergunta": "pergunta curta para enquete", "opcao1": "Sim", "opcao2": "Não" },
+  "cta": "frase CTA curta (máx 5 palavras)"
+}
+Responda APENAS o JSON.`;
+
+  let storyData = null;
+  try {
+    const resp = await fetch('/api/groq', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'llama-3.1-8b-instant', max_tokens:300, messages:[{role:'user', content:prompt}] })
+    });
+    const data = await resp.json();
+    const texto = data?.content?.[0]?.text || '';
+    storyData = JSON.parse(texto.replace(/```json|```/g,'').trim());
+  } catch(e) {
+    storyData = {
+      gancho: 'SUA EMPRESA MERECE O MELHOR',
+      subtexto: 'Terceirização profissional em POA',
+      enquete: { pergunta: 'Já terceiriza algum serviço?', opcao1: 'Sim!', opcao2: 'Ainda não' },
+      cta: 'Fale conosco!'
+    };
+  }
+
+  return await gerarSlideStory(servico, storyData);
+}
+
+function gerarSlideStory(servico, dados) {
+  return new Promise((resolve) => {
+    const W = 1080, H = 1920; // formato story 9:16
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    const cores = {
+      limpeza:   { bg1: '#0f172a', bg2: '#1e3a5f', accent: '#3b82f6' },
+      portaria:  { bg1: '#1a0000', bg2: '#3b0000', accent: '#b91c1c' },
+      condominio:{ bg1: '#1a0000', bg2: '#3b0000', accent: '#b91c1c' },
+      lojas:     { bg1: '#1a0030', bg2: '#3b0070', accent: '#7c3aed' },
+      hospitais: { bg1: '#002010', bg2: '#004020', accent: '#059669' },
+      geral:     { bg1: '#1a0000', bg2: '#3b0000', accent: '#b91c1c' }
+    };
+    const c = cores[servico] || cores.geral;
+
+    // Fundo gradiente
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, c.bg1);
+    grad.addColorStop(1, c.bg2);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Círculo decorativo
+    ctx.beginPath();
+    ctx.arc(W*0.8, H*0.25, 320, 0, Math.PI*2);
+    ctx.fillStyle = c.accent + '15';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(W*0.1, H*0.75, 200, 0, Math.PI*2);
+    ctx.fillStyle = c.accent + '10';
+    ctx.fill();
+
+    // Header LCS
+    const BAR = 110;
+    ctx.fillStyle = 'rgba(185,28,28,0.95)';
+    ctx.fillRect(0, 0, W, BAR);
+    try { ctx.drawImage(_logoCache, 12, 10, 88, 88); } catch(e){}
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 38px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('LCS Terceirização', 114, 52);
+    ctx.font = '24px Arial';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText('Limpeza  •  Portaria  •  Facilities', 114, 88);
+
+    // Linha accent
+    ctx.fillStyle = c.accent;
+    ctx.fillRect(0, BAR, W, 6);
+
+    // GANCHO principal
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold 86px Arial`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 12;
+    wrapText(ctx, dados.gancho || '', W/2, 420, W*0.88, 100);
+    ctx.shadowBlur = 0;
+
+    // Subtexto
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.font = '42px Arial';
+    ctx.textAlign = 'center';
+    wrapText(ctx, dados.subtexto || '', W/2, 660, W*0.85, 52);
+
+    // ENQUETE visual
+    const EY = 820;
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    roundRect(ctx, W*0.06, EY, W*0.88, 200, 24);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, W*0.06, EY, W*0.88, 200, 24);
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 36px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('📊 ' + (dados.enquete?.pergunta || ''), W/2, EY + 56);
+
+    // Botões enquete
+    const btnW = W*0.38, btnH = 72, btnY = EY + 104;
+    ctx.fillStyle = c.accent;
+    roundRect(ctx, W*0.07, btnY, btnW, btnH, 16); ctx.fill();
+    roundRect(ctx, W*0.55, btnY, btnW, btnH, 16); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 32px Arial';
+    ctx.fillText(dados.enquete?.opcao1 || 'Sim', W*0.07 + btnW/2, btnY + 46);
+    ctx.fillText(dados.enquete?.opcao2 || 'Não', W*0.55 + btnW/2, btnY + 46);
+
+    // CTA
+    const CTAY = 1150;
+    ctx.fillStyle = '#fff';
+    roundRect(ctx, W*0.1, CTAY, W*0.8, 100, 20); ctx.fill();
+    ctx.fillStyle = '#b91c1c';
+    ctx.font = 'bold 40px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('📱 ' + (dados.cta || 'Fale conosco!'), W/2, CTAY + 62);
+
+    // WhatsApp
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '34px Arial';
+    ctx.fillText('WhatsApp (51) 99889-3033', W/2, CTAY + 160);
+
+    // Swipe up hint
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '28px Arial';
+    ctx.fillText('👆 Deslize para saber mais', W/2, H - 200);
+
+    // Footer
+    ctx.fillStyle = 'rgba(185,28,28,0.9)';
+    ctx.fillRect(0, H-110, W, 110);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 32px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('📱 (51) 99889-3033', W*0.04, H-110+48);
+    ctx.textAlign = 'right';
+    ctx.fillText('@lcs_terceirizacao', W*0.96, H-110+48);
+    ctx.textAlign = 'center';
+    ctx.font = '22px Arial';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('lcsterceirizacaors.com.br', W/2, H-110+88);
+
+    resolve(cv.toDataURL('image/jpeg', 0.92));
+  });
+}
+
+let ultimoStory = null;
+
+async function gerarStory() {
+  const btn = document.querySelector('button[onclick="gerarStory()"]');
+  if(btn) { btn.innerHTML = '<span class="spinner"></span> Gerando story...'; btn.disabled = true; }
+  try {
+    const servico = document.getElementById('servico')?.value || 'geral';
+    const tema = document.getElementById('tema')?.value || 'beneficios';
+    const legenda = document.getElementById('output-legenda')?.innerText || '';
+    ultimoStory = await gerarStoriesIA(servico, tema, legenda);
+    const preview = document.getElementById('story-preview');
+    const imgEl = document.getElementById('story-img');
+    if(preview) preview.style.display = 'block';
+    if(imgEl) imgEl.src = ultimoStory;
+    preview?.scrollIntoView({ behavior:'smooth', block:'start' });
+    showToast('✅ Story gerado!');
+  } catch(e) {
+    showToast('❌ Erro: ' + e.message);
+  } finally {
+    if(btn) { btn.innerHTML = '📱 Gerar Story'; btn.disabled = false; }
+  }
+}
+
+function baixarStory() {
+  if(!ultimoStory) { showToast('Gere o story primeiro!'); return; }
+  const a = document.createElement('a');
+  a.href = ultimoStory;
+  a.download = 'lcs-story.jpg';
+  a.click();
+}
+
+// ============================================================
+// CARROSSEL — funções de UI e integração
+// ============================================================
+let ultimoCarrossel = []; // slides do último carrossel gerado
+
+async function gerarCarrossel() {
+  const btn = document.querySelector('button[onclick="gerarCarrossel()"]');
+  if(btn) { btn.innerHTML = '<span class="spinner"></span> Gerando 3 slides...'; btn.disabled = true; }
+
+  try {
+    const servico  = document.getElementById('servico')?.value || 'geral';
+    const tema     = document.getElementById('tema')?.value || 'beneficios';
+    const legenda  = document.getElementById('output-legenda')?.innerText || '';
+
+    // Busca foto do banco de temas
+    const fotoData = await buscarFotoIA(servico, 0, 'post');
+
+    showToast('🎠 Gerando slides...');
+    ultimoCarrossel = await gerarCarrosselIA(servico, tema, legenda, fotoData);
+
+    // Mostra preview
+    const preview = document.getElementById('carrossel-preview');
+    const slidesEl = document.getElementById('carrossel-slides');
+    if(preview) preview.style.display = 'block';
+    if(slidesEl) {
+      slidesEl.innerHTML = ultimoCarrossel.map((img, i) => `
+        <div style="border-radius:10px;overflow:hidden;border:2px solid var(--border);position:relative;">
+          <img src="${img}" style="width:100%;display:block;">
+          <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;">Slide ${i+1}/3</div>
+        </div>
+      `).join('');
+    }
+
+    preview?.scrollIntoView({ behavior:'smooth', block:'start' });
+    showToast('✅ Carrossel gerado! Baixe os slides ou envie ao Buffer.');
+
+  } catch(e) {
+    console.error('gerarCarrossel:', e);
+    showToast('❌ Erro ao gerar carrossel: ' + e.message);
+  } finally {
+    if(btn) { btn.innerHTML = '🎠 Gerar Carrossel (3 slides)'; btn.disabled = false; }
+  }
+}
+
+function baixarCarrossel() {
+  if(!ultimoCarrossel.length) { showToast('Gere o carrossel primeiro!'); return; }
+  ultimoCarrossel.forEach((img, i) => {
+    const a = document.createElement('a');
+    a.href = img;
+    a.download = `lcs-carrossel-slide-${i+1}.jpg`;
+    a.click();
+  });
+  showToast('⬇️ Baixando 3 slides...');
+}
+
+async function agendarCarrosselBuffer() {
+  if(!ultimoCarrossel.length) { showToast('Gere o carrossel primeiro!'); return; }
+  const btn = document.querySelector('button[onclick="agendarCarrosselBuffer()"]');
+  if(btn) { btn.innerHTML = '<span class="spinner"></span> Enviando...'; btn.disabled = true; }
+  try {
+    // Upload de cada slide
+    const urls = [];
+    for(let i=0; i<ultimoCarrossel.length; i++) {
+      showToast(`☁️ Enviando slide ${i+1}/3...`);
+      const res = await fetch('/api/upload', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ imageData: ultimoCarrossel[i] })
+      });
+      const data = await res.json();
+      if(data.url) urls.push(data.url);
+    }
+    const legenda = document.getElementById('output-legenda')?.innerText || '';
+    const tags = [...document.querySelectorAll('#output-tags .tag')].map(t=>t.textContent).join(' ');
+    const textoFull = legenda + '\n\n' + tags;
+    // Agenda no Buffer como carrossel (múltiplas imagens)
+    await apEnviarBuffer(
+      localStorage.getItem('ap_buffer_key') || '7bapnxk-EY4t_nyw8veZ4x7Gv2j1oWQsiemb8kELYbj',
+      textoFull, urls[0], new Date(Date.now() + 3600000).toISOString()
+    );
+    showToast('✅ Carrossel agendado no Buffer!');
+  } catch(e) {
+    showToast('❌ Erro: ' + e.message);
+  } finally {
+    if(btn) { btn.innerHTML = '📤 Enviar ao Buffer'; btn.disabled = false; }
+  }
+}
+
+// Carrossel no Auto Post — gera slides em vez de imagem única
+async function apGerarImagemCarrossel(servico, tema, legenda) {
+  const fotoData = await apGerarImagem(servico, tema, legenda);
+  return await gerarCarrosselIA(servico, tema, legenda, fotoData || null);
+}
+
 // ============================================================
 // AUTO POST DIÁRIO — Sistema completo
 // ============================================================
@@ -3032,7 +3587,26 @@ async function apGerarLegendaIA(servico, tema, tom) {
     : tom === 'engajamento' ? 'envolvente, emocional e com urgência'
     : tom === 'educativo'  ? 'educativo e informativo, como uma dica'
     : 'direto e objetivo, focado em resultado';
-  const prompt = `Marketing Instagram para LCS Terceirização, Porto Alegre RS. Serviço: ${servicoLabel}. Tema: ${tema}. Tom: ${tomInstrucao}. Crie legenda com: gancho forte, 2-3 frases de benefícios, call-to-action com WhatsApp (51) 99889-3033. Mencione Porto Alegre. Máx 4 emojis. SEM hashtags. Responda APENAS a legenda.`;
+  const perguntas = {
+    portaria:   ['Seu condomínio tem portaria profissional?', 'Você confia na segurança do seu condomínio?', 'Já pensou em terceirizar a portaria do seu prédio?', 'A portaria do seu condomínio está bem gerida?'],
+    limpeza:    ['Seu espaço está sempre limpo e organizado?', 'Você terceiriza a limpeza da sua empresa?', 'Quanto tempo você perde com limpeza no trabalho?', 'Sua empresa tem um ambiente sempre impecável?'],
+    condominio: ['Seu condomínio é bem administrado?', 'Você é síndico e busca mais eficiência?', 'Já considerou terceirizar os serviços do seu condomínio?', 'O que mais preocupa você na gestão do condomínio?'],
+    lojas:      ['Sua loja está sempre impecável para os clientes?', 'Você preocupa com a limpeza do seu estabelecimento?', 'Já pensou em terceirizar a limpeza da sua loja?', 'Seus clientes percebem a limpeza do seu espaço?'],
+    hospitais:  ['Sua clínica mantém os padrões de higiene exigidos?', 'A limpeza do seu espaço de saúde está em dia?', 'Você prioriza a higienização no seu estabelecimento de saúde?', 'Já considerou terceirizar a limpeza hospitalar?'],
+    geral:      ['Você já pensou em terceirizar serviços na sua empresa?', 'Sua empresa está preparada para crescer?', 'Quanto tempo você ganha terceirizando serviços?', 'Já conhece os benefícios da terceirização?']
+  };
+  const perguntasServico = perguntas[servico] || perguntas.geral;
+  const pergunta = perguntasServico[Math.floor(Math.random() * perguntasServico.length)];
+
+  const prompt = `Marketing Instagram para LCS Terceirização, Porto Alegre RS. Serviço: ${servicoLabel}. Tema: ${tema}. Tom: ${tomInstrucao}.
+
+Crie uma legenda com EXATAMENTE esta estrutura:
+1. Gancho forte na primeira linha (máx 10 palavras)
+2. 2-3 frases de benefícios concretos do serviço
+3. Call-to-action com WhatsApp (51) 99889-3033
+4. ÚLTIMA LINHA OBRIGATÓRIA — termine com esta pergunta para engajar: "${pergunta} 👇"
+
+Regras: mencione Porto Alegre, máx 4 emojis, SEM hashtags. Responda APENAS a legenda.`;
 
   try {
     const resp = await fetch('/api/groq', {
@@ -3054,14 +3628,30 @@ async function apGerarLegendaIA(servico, tema, tom) {
 }
 
 async function apGerarHashtags(servico) {
-  const mapa = {
-    condominio:'#lcsterceirizacao #terceirizacaors #portaria #condominio #sindicos #portoalegre #grandeportoalegre #facilitiesportoalegre #gestaocondominal #portariacondominio',
-    portaria:  '#lcsterceirizacao #terceirizacaors #portaria #porteiros #seguranca #portoalegre #facilitiesportoalegre #terceirizacao #portariaepresença #controledacesso',
-    limpeza:   '#lcsterceirizacao #terceirizacaors #limpeza #limpezaprofissional #conservacao #portoalegre #facilitiesportoalegre #terceirizacao #higienizacao #limpezacorporativa',
-    lojas:     '#lcsterceirizacao #terceirizacaors #limpeza #limpezacomercial #portoalegre #comercioPOA #estabelecimentos #limpezadelojas #terceirizacao #conservacao',
-    hospitais: '#lcsterceirizacao #terceirizacaors #limpeza #limpezahospitalar #saude #portoalegre #hospitais #clinicas #higienizacao #biosseguranca'
+  // Tags base — aparecem em TODOS os posts
+  const base = '#lcsterceirizacao #terceirizacaors #terceirizacao #portoalegre #grandeportoalegre #facilitiesportoalegre #facilities #gestaodefacilities #empresasterceirizadas #terceirizacaodeservicos';
+
+  // Tags de segmento cruzado — sempre presentes para alcance máximo
+  const cruzadas = '#condominio #sindicos #administradorasdecondominio #gestaocondominal #lojas #estabelecimentoscomerciais #imobiliarias #hospitais #clinicas #empresas #escritorios #shoppings #redesdlojas #supermercados #industrias';
+
+  // Tags específicas por serviço
+  const especificas = {
+    condominio:'#portaria #portariacondominio #porteiros #segurancacondominio #controledacesso #portariaepresença #acessocontrolado #condominioresidencial #condominioempresarial #sindico #gestaocondominio',
+    portaria:  '#portaria #porteiros #seguranca #portariaepresença #controledacesso #segurancapatriomonial #vigilancia #recepcionista #portariaresidencial #portariaempresarial #portariacomercial',
+    limpeza:   '#limpeza #limpezaprofissional #limpezacorporativa #conservacao #higienizacao #limpezacomercial #limpezapredial #limpezaindustrial #limpezaescritorio #ambientelimpo #higiene',
+    lojas:     '#limpezacomercial #limpezalojas #limpezashopping #estabelecimentos #comercioPOA #lojasportoalegre #limpezcaestabelecimentos #higienizacaocomercial #ambientecomercial #varejo',
+    hospitais: '#limpezahospitalar #higienizacaohospitalar #saude #hospitais #clinicas #laboratorios #biosseguranca #limpezaclinica #higienizacaosaude #ambientesaude #infectologia',
+    facilities:'#facilities #gestaodefacilities #manutencaopredial #servicosprediais #facilitymanagement #operacoesprediais #manutencao #servicosgerais #predios #edificios',
+    geral:     '#servicosterceirizados #limpeza #portaria #facilities #condominio #lojas #hospitais #empresas #portoalegrers #suldobrasil'
   };
-  return (mapa[servico] || mapa.condominio).split(' ');
+
+  const tags = [
+    ...base.split(' '),
+    ...cruzadas.split(' '),
+    ...(especificas[servico] || especificas.geral).split(' ')
+  ].filter(t => t.startsWith('#'));
+
+  return tags;
 }
 
 async function apGerarImagem(servico, tema, legenda) {
@@ -3221,11 +3811,19 @@ async function apAgendarTudo() {
   for(let i=0; i<apPreviewData.length; i++) {
     const item = apPreviewData[i];
     if(!item) continue;
-    apLog(`📸 ${item.imgDataUrl ? 'Usando imagem da prévia' : 'Gerando imagem'} para ${AP_DIAS_FULL[item.data.getDay()]}...`);
+    const tipoPost = document.getElementById('ap-tipo-post')?.value || 'post';
+    apLog(`📸 ${tipoPost === 'carrossel' ? '🎠 Gerando carrossel' : 'Gerando imagem'} para ${AP_DIAS_FULL[item.data.getDay()]}...`);
     try {
-      const imgDataUrl = item.imgDataUrl || await apGerarImagem(item.servico, item.cfg.tema, item.legenda);
-      apLog(`☁️ Enviando imagem...`);
-      const imgUrl = await apUploadImagem(imgDataUrl);
+      let imgUrl = null;
+      if(tipoPost === 'carrossel') {
+        const slides = item.slides || await apGerarImagemCarrossel(item.servico, item.cfg.tema, item.legenda);
+        apLog(`☁️ Enviando slide principal...`);
+        imgUrl = await apUploadImagem(slides[0]); // Buffer recebe o primeiro slide
+      } else {
+        const imgDataUrl = item.imgDataUrl || await apGerarImagem(item.servico, item.cfg.tema, item.legenda);
+        apLog(`☁️ Enviando imagem...`);
+        imgUrl = await apUploadImagem(imgDataUrl);
+      }
       apLog(`📤 Agendando no Buffer...`);
       const postId = await apEnviarBuffer(bufferKey, item.textoFull, imgUrl, item.scheduledAt);
       apLog(`✅ Agendado! ID: ${postId}`);
