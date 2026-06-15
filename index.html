@@ -2687,17 +2687,25 @@ async function sincronizarBuffer() {
     const orgId = orgData?.data?.account?.organizations?.[0]?.id;
     if(!orgId) throw new Error('Org não encontrada');
 
-    // Busca posts agendados
+    // Busca posts agendados E publicados
     const agendRes = await fetch('/api/buffer', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        query: `query { posts(input: { organizationId: "${orgId}" }) { edges { node { id text dueAt status channel { name service } } } } }`,
+        query: `query {
+          agendados: posts(input: { organizationId: "${orgId}" }) { edges { node { id text dueAt status channel { name service } } } }
+          publicados: posts(input: { organizationId: "${orgId}", filter: { sent: true } }) { edges { node { id text dueAt status channel { name service } } } }
+        }`,
         token: bufferKey
       })
     });
     const agendData = await agendRes.json();
-    const edges = agendData?.data?.posts?.edges || [];
-    console.log('Sync Buffer:', edges.length, 'posts encontrados');
+    console.log('Sync Buffer raw:', JSON.stringify(agendData).substring(0, 300));
+    const agendados = agendData?.data?.agendados?.edges || [];
+    const publicados = agendData?.data?.publicados?.edges || [];
+    // Marca publicados com status sent
+    publicados.forEach(e => { if(e.node) e.node._sent = true; });
+    const edges = [...agendados, ...publicados];
+    console.log('Sync Buffer:', agendados.length, 'agendados +', publicados.length, 'publicados');
 
     // IDs agendados no Buffer agora
     const idsAgendados = new Set(edges.map(e => e.node.id));
@@ -2743,7 +2751,7 @@ async function sincronizarBuffer() {
       posts.unshift({
         id: Date.now() + Math.random(),
         legenda: legenda || texto.substring(0,200),
-        tags, status:'agendado',
+        tags, status: node._sent ? 'publicado' : 'agendado',
         data: dueAt.toLocaleDateString('pt-BR'),
         dataISO: dueAt.toISOString().split('T')[0],
         hora: dueAt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
