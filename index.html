@@ -533,8 +533,9 @@
         <button class="btn btn-secondary btn-sm" onclick="filtrarPosts('publicado')" id="f-publicado">Publicados</button>
         <button class="btn btn-secondary btn-sm" onclick="filtrarPosts('rascunho')" id="f-rascunho">Rascunhos</button>
       </div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-secondary btn-sm" id="btn-importar-buffer" onclick="importarDoBuffer()">📥 Importar do Buffer</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" id="btn-sincronizar-buffer" onclick="sincronizarBuffer()">🔄 Sincronizar</button>
+        <button class="btn btn-secondary btn-sm" id="btn-importar-buffer" onclick="importarDoBuffer()">📥 Importar</button>
         <button class="btn btn-primary btn-sm" onclick="switchTab('gerador', document.querySelector('.tab'))">+ Novo Post</button>
       </div>
     </div>
@@ -2666,6 +2667,106 @@ async function gerarTrintaComMinhasFotos() {
   
   // Auto-start generation
   await gerarTrintaDias();
+}
+
+// SINCRONIZAR COM BUFFER — atualiza status dos posts
+async function sincronizarBuffer() {
+  const bufferKey = localStorage.getItem('ap_buffer_key')
+    || '7bapnxk-EY4t_nyw8veZ4x7Gv2j1oWQsiemb8kELYbj';
+
+  const btn = document.getElementById('btn-sincronizar-buffer');
+  if(btn) { btn.innerHTML = '<span class="spinner"></span>'; btn.disabled = true; }
+
+  try {
+    // Busca org
+    const orgRes = await fetch('/api/buffer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ query:`query { account { organizations { id } } }`, token: bufferKey })
+    });
+    const orgData = await orgRes.json();
+    const orgId = orgData?.data?.account?.organizations?.[0]?.id;
+    if(!orgId) throw new Error('Org não encontrada');
+
+    // Busca posts agendados
+    const agendRes = await fetch('/api/buffer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        query: `query { posts(input: { organizationId: "${orgId}" }) { edges { node { id text dueAt status channel { name service } } } } }`,
+        token: bufferKey
+      })
+    });
+    const agendData = await agendRes.json();
+    const edges = agendData?.data?.posts?.edges || [];
+    console.log('Sync Buffer:', edges.length, 'posts encontrados');
+
+    // IDs agendados no Buffer agora
+    const idsAgendados = new Set(edges.map(e => e.node.id));
+
+    let atualizados = 0;
+    let importados = 0;
+    const idsExistentes = new Set(posts.map(p => p.bufferId).filter(Boolean));
+
+    // Atualiza posts existentes
+    posts.forEach(p => {
+      if(!p.bufferId) return;
+      if(p.status === 'agendado' && !idsAgendados.has(p.bufferId)) {
+        // Não está mais agendado no Buffer → foi publicado
+        p.status = 'publicado';
+        atualizados++;
+      } else if(p.status === 'agendado' && idsAgendados.has(p.bufferId)) {
+        // Ainda agendado — atualiza data/hora do Buffer
+        const node = edges.find(e => e.node.id === p.bufferId)?.node;
+        if(node?.dueAt) {
+          const d = new Date(node.dueAt);
+          p.data = d.toLocaleDateString('pt-BR');
+          p.hora = d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+        }
+      }
+    });
+
+    // Importa posts do Buffer que não existem localmente
+    edges.forEach(({ node }) => {
+      if(idsExistentes.has(node.id)) return;
+      const dueAt = node.dueAt ? new Date(node.dueAt) : new Date();
+      const texto = node.text || '';
+      const linhas = texto.split('\n');
+      const tagLine = linhas.find(l => l.trim().startsWith('#')) || '';
+      const legenda = linhas.filter(l => !l.trim().startsWith('#')).join('\n').trim();
+      const tags = tagLine.split(' ').filter(t => t.startsWith('#'));
+      const textoLower = texto.toLowerCase();
+      let servico = 'Geral', emoji = '📷';
+      if(textoLower.includes('portaria')||textoLower.includes('porteiro')) { servico='Portaria'; emoji='🚪'; }
+      else if(textoLower.includes('limpeza')||textoLower.includes('faxina')) { servico='Limpeza'; emoji='🧹'; }
+      else if(textoLower.includes('condomínio')||textoLower.includes('síndico')) { servico='Condomínio'; emoji='🏢'; }
+      else if(textoLower.includes('loja')||textoLower.includes('comércio')) { servico='Lojas'; emoji='🛍️'; }
+      else if(textoLower.includes('hospital')||textoLower.includes('clínica')) { servico='Hospitais'; emoji='🏥'; }
+      posts.unshift({
+        id: Date.now() + Math.random(),
+        legenda: legenda || texto.substring(0,200),
+        tags, status:'agendado',
+        data: dueAt.toLocaleDateString('pt-BR'),
+        dataISO: dueAt.toISOString().split('T')[0],
+        hora: dueAt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+        servico, emoji, bufferId: node.id, fonte:'autopost'
+      });
+      importados++;
+    });
+
+    salvar();
+    renderPosts();
+
+    let msg = '🔄 Sincronizado!';
+    if(atualizados > 0) msg += ` ${atualizados} marcados como publicados.`;
+    if(importados > 0) msg += ` ${importados} importados.`;
+    if(atualizados === 0 && importados === 0) msg = '✅ Tudo atualizado, nenhuma mudança.';
+    showToast(msg);
+
+  } catch(e) {
+    console.error('Sync erro:', e);
+    showToast('❌ Erro ao sincronizar: ' + e.message);
+  } finally {
+    if(btn) { btn.innerHTML = '🔄 Sincronizar'; btn.disabled = false; }
+  }
 }
 
 // IMPORTAR DO BUFFER → MEUS POSTS
