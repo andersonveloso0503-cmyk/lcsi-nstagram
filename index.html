@@ -2941,14 +2941,7 @@ async function sincronizarBuffer() {
   if(btn) { btn.innerHTML = '<span class="spinner"></span>'; btn.disabled = true; }
 
   try {
-    // Busca org
-    const orgRes = await fetch('/api/buffer', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ query:`query { account { organizations { id } } }`, token: bufferKey })
-    });
-    const orgData = await orgRes.json();
-    const orgId = orgData?.data?.account?.organizations?.[0]?.id;
-    if(!orgId) throw new Error('Org não encontrada');
+    const orgId = '6a1ba757b55a708283acc599';
 
     // Busca posts agendados E publicados
     const agendRes = await fetch('/api/buffer', {
@@ -3052,14 +3045,7 @@ async function importarDoBuffer() {
   if(btn) { btn.innerHTML = '<span class="spinner"></span> Importando...'; btn.disabled = true; }
 
   try {
-    // Busca organização
-    const orgRes = await fetch('/api/buffer', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ query:`query { account { organizations { id name } } }`, token: bufferKey })
-    });
-    const orgData = await orgRes.json();
-    const orgId = orgData?.data?.account?.organizations?.[0]?.id;
-    if(!orgId) throw new Error('Organização não encontrada');
+    const orgId = '6a1ba757b55a708283acc599';
 
     // Busca posts agendados do Buffer
     const postsRes = await fetch('/api/buffer', {
@@ -3678,24 +3664,11 @@ async function apUploadImagem(dataUrl) {
 }
 
 async function apEnviarBuffer(bufferKey, texto, imageUrl, dataHora) {
-  // Step 1: get org
-  const orgRes = await fetch('/api/buffer', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ query:`query { account { organizations { id name } } }`, token: bufferKey })
-  });
-  const orgData = await orgRes.json();
-  const orgId = orgData?.data?.account?.organizations?.[0]?.id;
-  if(!orgId) throw new Error('Org não encontrada');
-
-  // Step 2: get channel
-  const chRes = await fetch('/api/buffer', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ query:`query { channels(input: { organizationId: "${orgId}" }) { id name service } }`, token: bufferKey })
-  });
-  const chData = await chRes.json();
-  const channels = chData?.data?.channels || [];
-  const igChannel = channels.find(c=>(c.service||'').includes('instagram')||(c.name||'').toLowerCase().includes('lcs')) || channels[0];
-  if(!igChannel?.id) throw new Error('Canal Instagram não encontrado');
+  // IDs fixos da conta LCS — evita queries desnecessárias
+  const ORG_ID = '6a1ba757b55a708283acc599';
+  const IG_CHANNEL_ID = '6a1ba809c487a22dd44479b8';
+  const orgId = ORG_ID;
+  const igChannel = { id: IG_CHANNEL_ID };
 
   const scheduledAt = dataHora;
   const assetsField = imageUrl ? `, assets: [{ image: { url: ${JSON.stringify(imageUrl)} } }]` : '';
