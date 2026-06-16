@@ -3401,7 +3401,7 @@ async function agendarCarrosselBuffer() {
     const scheduledAt = new Date(Date.now() + 3600000).toISOString();
     await apEnviarBuffer(
       localStorage.getItem('ap_buffer_key') || '7bapnxk-EY4t_nyw8veZ4x7Gv2j1oWQsiemb8kELYbj',
-      textoFull, urls[0], scheduledAt
+      textoFull, urls, scheduledAt  // passa array com todos os slides
     );
     showToast('✅ Carrossel agendado no Buffer!');
   } catch(e) {
@@ -3694,7 +3694,15 @@ async function apEnviarBuffer(bufferKey, texto, imageUrl, dataHora) {
   const igChannel = { id: channelId };
 
   const scheduledAt = dataHora;
-  const assetsField = imageUrl ? `, assets: [{ image: { url: ${JSON.stringify(imageUrl)} } }]` : '';
+  // Suporta múltiplas imagens (carrossel) ou imagem única
+  let assetsField = '';
+  if(Array.isArray(imageUrl)) {
+    // Carrossel — múltiplos assets
+    const assetsStr = imageUrl.map(u => `{ image: { url: ${JSON.stringify(u)} } }`).join(', ');
+    assetsField = `, assets: [${assetsStr}]`;
+  } else if(imageUrl) {
+    assetsField = `, assets: [{ image: { url: ${JSON.stringify(imageUrl)} } }]`;
+  }
 
   const res = await fetch('/api/buffer', {
     method:'POST', headers:{'Content-Type':'application/json'},
