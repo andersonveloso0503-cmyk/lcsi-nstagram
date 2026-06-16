@@ -3388,21 +3388,27 @@ async function agendarCarrosselBuffer() {
     const urls = [];
     for(let i=0; i<ultimoCarrossel.length; i++) {
       showToast(`☁️ Enviando slide ${i+1}/3...`);
+      console.log(`Upload slide ${i+1}...`);
       const res = await fetch('/api/upload', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ imageData: ultimoCarrossel[i] })
       });
       const data = await res.json();
+      console.log(`Slide ${i+1} upload result:`, data.url || data.error);
       if(data.url) urls.push(data.url);
     }
+    console.log('URLs geradas:', urls.length, urls[0]?.substring(0,60));
     const legenda = document.getElementById('output-legenda')?.innerText || '';
     const tags = [...document.querySelectorAll('#output-tags .tag')].map(t=>t.textContent).join(' ');
     const textoFull = legenda + '\n\n' + tags;
+    const scheduledAt = new Date(Date.now() + 3600000).toISOString();
+    console.log('Agendando no Buffer, scheduledAt:', scheduledAt, 'imgUrl:', urls[0]?.substring(0,60));
     // Agenda no Buffer como carrossel (múltiplas imagens)
-    await apEnviarBuffer(
+    const postId = await apEnviarBuffer(
       localStorage.getItem('ap_buffer_key') || '7bapnxk-EY4t_nyw8veZ4x7Gv2j1oWQsiemb8kELYbj',
-      textoFull, urls[0], new Date(Date.now() + 3600000).toISOString()
+      textoFull, urls[0], scheduledAt
     );
+    console.log('✅ Post agendado, ID:', postId);
     showToast('✅ Carrossel agendado no Buffer!');
   } catch(e) {
     console.error('agendarCarrosselBuffer erro:', e.message);
