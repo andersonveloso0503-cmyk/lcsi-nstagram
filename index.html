@@ -3612,7 +3612,14 @@ Regras: mencione Porto Alegre, máx 4 emojis, SEM hashtags. Responda APENAS a le
     const data = await resp.json();
     const texto = data?.content?.[0]?.text || '';
     if (!texto) throw new Error('Resposta vazia');
-    return texto;
+
+    // Garante pergunta de engajamento no final
+    const perguntasServico = perguntas[servico] || perguntas.geral;
+    const perguntaFinal = perguntasServico[Math.floor(Math.random() * perguntasServico.length)];
+    const jaTemPergunta = texto.includes('?') && texto.trim().slice(-20).includes('👇');
+    const textoFinal = jaTemPergunta ? texto : texto.trim() + '\n\n' + perguntaFinal + ' 👇';
+    return textoFinal;
+
   } catch(e) {
     console.error('apGerarLegendaIA erro:', e);
     return '';
@@ -3696,18 +3703,22 @@ async function apEnviarBuffer(bufferKey, texto, imageUrl, dataHora) {
   const scheduledAt = dataHora;
   // Suporta múltiplas imagens (carrossel) ou imagem única
   let assetsField = '';
-  if(Array.isArray(imageUrl)) {
-    // Carrossel — múltiplos assets
+  let carrosselField = '';
+  if(Array.isArray(imageUrl) && imageUrl.length > 1) {
+    // Carrossel — usa type: carousel no metadata e múltiplos assets
     const assetsStr = imageUrl.map(u => `{ image: { url: ${JSON.stringify(u)} } }`).join(', ');
     assetsField = `, assets: [${assetsStr}]`;
-  } else if(imageUrl) {
-    assetsField = `, assets: [{ image: { url: ${JSON.stringify(imageUrl)} } }]`;
+    carrosselField = 'carousel';
+  } else {
+    const url = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
+    if(url) assetsField = `, assets: [{ image: { url: ${JSON.stringify(url)} } }]`;
+    carrosselField = 'post';
   }
 
   const res = await fetch('/api/buffer', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
-      query: `mutation { createPost(input: { text: ${JSON.stringify(texto)}, channelId: "${igChannel.id}", schedulingType: automatic, mode: customScheduled, dueAt: "${scheduledAt}", metadata: { instagram: { type: post, shouldShareToFeed: true } }${assetsField} }) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`,
+      query: `mutation { createPost(input: { text: ${JSON.stringify(texto)}, channelId: "${igChannel.id}", schedulingType: automatic, mode: customScheduled, dueAt: "${scheduledAt}", metadata: { instagram: { type: ${carrosselField}, shouldShareToFeed: true } }${assetsField} }) { ... on PostActionSuccess { post { id } } ... on MutationError { message } } }`,
       token: bufferKey
     })
   });
