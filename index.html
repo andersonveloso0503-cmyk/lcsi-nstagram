@@ -3405,7 +3405,8 @@ async function agendarCarrosselBuffer() {
     );
     showToast('✅ Carrossel agendado no Buffer!');
   } catch(e) {
-    showToast('❌ Erro: ' + e.message);
+    console.error('agendarCarrosselBuffer ERRO COMPLETO:', e.message, e.stack);
+    alert('Erro ao enviar ao Buffer:\n' + e.message);
   } finally {
     if(btn) { btn.innerHTML = '📤 Enviar ao Buffer'; btn.disabled = false; }
   }
