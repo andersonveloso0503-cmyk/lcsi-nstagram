@@ -3405,8 +3405,13 @@ async function agendarCarrosselBuffer() {
     );
     showToast('✅ Carrossel agendado no Buffer!');
   } catch(e) {
-    console.error('agendarCarrosselBuffer ERRO COMPLETO:', e.message, e.stack);
-    alert('Erro ao enviar ao Buffer:\n' + e.message);
+    console.error('agendarCarrosselBuffer erro:', e.message);
+    if(e.message.includes('RATE_LIMIT') || e.message.includes('Too many')) {
+      showToast('⏳ Limite Buffer atingido (24h). Baixando slides para publicar manualmente...');
+      setTimeout(() => baixarCarrossel(), 1500);
+    } else {
+      showToast('❌ Erro: ' + e.message);
+    }
   } finally {
     if(btn) { btn.innerHTML = '📤 Enviar ao Buffer'; btn.disabled = false; }
   }
@@ -3665,11 +3670,28 @@ async function apUploadImagem(dataUrl) {
 }
 
 async function apEnviarBuffer(bufferKey, texto, imageUrl, dataHora) {
-  // IDs fixos da conta LCS — evita queries desnecessárias
+  // IDs fixos da conta LCS
   const ORG_ID = '6a1ba757b55a708283acc599';
   const IG_CHANNEL_ID = '6a1ba809c487a22dd44479b8';
-  const orgId = ORG_ID;
-  const igChannel = { id: IG_CHANNEL_ID };
+
+  // Busca canais dinamicamente para garantir ID correto
+  let channelId = IG_CHANNEL_ID;
+  try {
+    const chRes = await fetch('/api/buffer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        query: `query { channels(input: { organizationId: "${ORG_ID}" }) { id name service } }`,
+        token: bufferKey
+      })
+    });
+    const chData = await chRes.json();
+    const channels = chData?.data?.channels || [];
+    console.log('Canais encontrados:', channels.map(c=>c.name+'/'+c.service+'/'+c.id));
+    const ig = channels.find(c => (c.service||'').toLowerCase().includes('instagram')) || channels[0];
+    if(ig?.id) channelId = ig.id;
+  } catch(e) { console.warn('Usando channel ID fixo:', channelId); }
+
+  const igChannel = { id: channelId };
 
   const scheduledAt = dataHora;
   const assetsField = imageUrl ? `, assets: [{ image: { url: ${JSON.stringify(imageUrl)} } }]` : '';
